@@ -9,9 +9,13 @@ import math
 
 class bob:
     # Dynamixel settings
-    ADDR_PRO_TORQUE_ENABLE = 64
-    ADDR_PRO_GOAL_POSITION = 116
-    ADDR_PRO_PRESENT_POSITION = 132
+    ADDR_TORQUE_ENABLE = 64
+    ADDR_GOAL_VELOCITY = 104
+    ADDR_GOAL_POSITION = 116
+    ADDR_PRESENT_POSITION = 132
+    ADDR_OPERATING_MODE = 11
+    VELOCITY_CONTROL_MODE = 1  # Value for setting velocity control mode
+    POSITION_CONTROL_MODE = 3  # Value for setting position control mode
     PROTOCOL_VERSION = 2.0
     BAUDRATE = 57600
     DEVICENAME = "/dev/ttyUSB0"  # Adjust to your port
@@ -19,25 +23,12 @@ class bob:
     TORQUE_DISABLE = 0
     dynaindex = [21, 22, 23, 24, 25, 11, 12, 13, 14, 15]
 
-    def __init__(self, dynaindex):
-        self.dynaindex = dynaindex
+    def __init__(self):
         # update speed
         self.dt = 0.01
         # list of all the motorized joints
-        self.joints_right = [
-            dynaindex[0],
-            dynaindex[1],
-            dynaindex[2],
-            dynaindex[3],
-            dynaindex[4],
-        ]
-        self.joints_left = {
-            dynaindex[5],
-            dynaindex[6],
-            dynaindex[7],
-            dynaindex[8],
-            dynaindex[9],
-        }
+        self.joints_right = self.dynaindex[:5]
+        self.joints_left = self.dynaindex[5:]
         # Initialized motor positions
         self.joint_angles_right = [0, 0, 0, 0, 0]
         self.joint_angles_left = [0, 0, 0, 0, 0]
@@ -106,32 +97,24 @@ class bob:
                 )
             )
 
-        def initialize_dynamixel(id):
-            port_handler = PortHandler(self.DEVICENAME)
-            packet_handler = PacketHandler(self.PROTOCOL_VERSION)
-
-            # Open port
-            if not port_handler.openPort():
-                raise Exception("Failed to open port")
-
-            # Set baudrate
-            if not port_handler.setBaudRate(self.BAUDRATE):
-                raise Exception("Failed to set baudrate")
-
-            # Enable torque
-            dxl_comm_result, dxl_error = packet_handler.write1ByteTxRx(
-                port_handler, id, self.ADDR_PRO_TORQUE_ENABLE, self.TORQUE_ENABLE
+        self.port_handler = PortHandler(self.DEVICENAME)
+        self.packet_handler = PacketHandler(self.PROTOCOL_VERSION)
+        # Open port
+        if not self.port_handler.openPort():
+            raise Exception("Failed to open port")
+    
+        # Set baudrate
+        if not self.port_handler.setBaudRate(self.BAUDRATE):
+            raise Exception("Failed to set baudrate")
+        
+        for i in self.dynaindex:
+            self.packet_handler.write1ByteTxRx(self.port_handler, i, self.ADDR_OPERATING_MODE, self.POSITION_CONTROL_MODE)
+            dxl_comm_result, dxl_error = (self.packet_handler).write1ByteTxRx(
+                self.port_handler, i, self.ADDR_TORQUE_ENABLE, self.TORQUE_ENABLE
             )
             if dxl_comm_result != COMM_SUCCESS or dxl_error != 0:
                 raise Exception("Failed to enable torque")
-            return port_handler, packet_handler
 
-        self.port_handler = []
-        self.packet_handler = []
-        for i in dynaindex:
-            port, packet = initialize_dynamixel(i)
-            self.port_handler.append(port)
-            self.packet_handler.append(packet)
         self.imu = ICM20948()
         # roll, pitch, and yaw of system reference frame
         self.roll = 0
@@ -152,15 +135,16 @@ class bob:
             T_i = dh_transform[i]
             T = np.dot(T, T_i)  # Multiply the current transformation
         return T
-
+    
     # Set dynamixel position
-    def set_dynamixel_position(self, packet_handler, port_handler, position, id):
-        if position > 1500:
+    def set_dynamixel_position(self, position, id):
+        """if position > 1500:
             position = 1500
         elif position < 478:
-            position = 478
-        dxl_comm_result, dxl_error = packet_handler.write4ByteTxRx(
-            port_handler, id, self.ADDR_PRO_GOAL_POSITION, position
+            position = 478"""
+        print(position)
+        dxl_comm_result, dxl_error = (self.packet_handler).write4ByteTxRx(
+            self.port_handler, id, self.ADDR_GOAL_POSITION, position
         )
         if dxl_comm_result != COMM_SUCCESS or dxl_error != 0:
             raise Exception(
@@ -190,22 +174,22 @@ class bob:
         self.pitch = pitch
 
     # Helper: Given angle of motor, return the position
-    def angle_to_position(angle):
+    def angle_to_position(self,angle):
         return int(((-angle + 90) / 360.0) * 4095)
 
     # Helper: Given position of motor, return the angle
-    def position_to_angle(position):
+    def position_to_angle(self,position):
         return -int((position / 4095.0) * 360.0)
 
     # Update the angle of each motor
     def update_motor_angles(self):
         for i in range(len(self.dynaindex)):
             id = self.dynaindex[i]
-            packetHandler = self.packet_handler[i]
-            portHandler = self.port_handler[i]
+            packetHandler = self.packet_handler
+            portHandler = self.port_handler
             dxl_present_position, dxl_comm_result, dxl_error = (
                 packetHandler.read4ByteTxRx(
-                    portHandler, id, self.ADDR_PRO_PRESENT_POSITION
+                    portHandler, id, self.ADDR_PRESENT_POSITION
                 )
             )
             if dxl_comm_result != COMM_SUCCESS:
@@ -217,9 +201,7 @@ class bob:
                 print("Error: %s" % packetHandler.getRxPacketError(dxl_error))
             else:
                 if i <= 4:
-                    self.joint_angles_right[i] = self.position_to_angle(
-                        dxl_present_position
-                    )
+                    self.joint_angles_right[i] = self.position_to_angle(dxl_present_position)
                 else:
                     self.joint_angles_left[i - 5] = self.position_to_angle(
                         dxl_present_position
@@ -231,3 +213,17 @@ class bob:
         roll = np.arctan2(T[2, 1], T[2, 2])
         pitch = np.arctan2(-T[2, 0], np.sqrt(T[2, 1] ** 2 + T[2, 2] ** 2))
         return roll + self.roll, pitch + self.pitch
+
+    # Disable torque and close port
+    def terminate(self):
+        for i in self.dynaindex:
+            self.packet_handler.write1ByteTxRx(self.port_handler,i,self.ADDR_TORQUE_ENABLE,self.TORQUE_DISABLE)
+        self.port_handler.closePort()
+
+try:
+    bob1 = bob()
+    bob1.set_dynamixel_position(2000,bob1.dynaindex[4])
+    bob1.update_motor_angles()
+except KeyboardInterrupt:
+    # Disable Dynamixel torque before quitting
+    bob1.terminate()

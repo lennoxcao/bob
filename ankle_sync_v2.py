@@ -5,10 +5,10 @@ from dynamixel_sdk import *  # Dynamixel SDK library for controlling the motor
 
 # Dynamixel settings
 ADDR_PRO_TORQUE_ENABLE = 64
-ADDR_PRO_GOAL_POSITION = 116
+ADDR_GOAL_POSITION = 116
 ADDR_PRO_PRESENT_POSITION = 132
 PROTOCOL_VERSION = 2.0
-DXL_ID = 1  # Dynamixel ID
+DXL_ID = 25  # Dynamixel ID
 BAUDRATE = 57600
 DEVICENAME = '/dev/ttyUSB0'  # Adjust to your port
 TORQUE_ENABLE = 1
@@ -58,7 +58,7 @@ def set_dynamixel_position(packet_handler, port_handler, position):
        position = 1500
     elif position<478:
        position = 478
-    dxl_comm_result, dxl_error = packet_handler.write4ByteTxRx(port_handler, DXL_ID, ADDR_PRO_GOAL_POSITION, position)
+    dxl_comm_result, dxl_error = packet_handler.write4ByteTxRx(port_handler, DXL_ID, ADDR_GOAL_POSITION, position)
     if dxl_comm_result != COMM_SUCCESS or dxl_error != 0:
         raise Exception(f"Failed to set position: {packet_handler.getTxRxResult(dxl_comm_result)}")
 
@@ -66,7 +66,8 @@ def main():
     # Initialize Dynamixel
     port_handler, packet_handler = initialize_dynamixel()
     try:
-        curr_angle = 0
+        set_dynamixel_position(packet_handler, port_handler, 1000)
+        """curr_angle = 0
         while True:
           start=time.clock_gettime(0)
           accel_x, accel_y, accel_z,gyro_x, gyro_y, gyro_z = imu.read_accelerometer_gyro_data()
@@ -84,13 +85,12 @@ def main():
           end = time.clock_gettime(0)
           interval = end-start
           if (DT-interval)>0:
-            time.sleep(DT-interval)  # Small delay for IMU reading and motor adjustment
+            time.sleep(DT-interval)  # Small delay for IMU reading and motor adjustment"""
     
     except KeyboardInterrupt: 
         print("Stopping...")
 
     # Disable torque on the Dynamixel motor
-    packet_handler.write1ByteTxRx(port_handler, DXL_ID, ADDR_PRO_TORQUE_ENABLE, TORQUE_DISABLE)
     port_handler.closePort()
 
 if __name__ == "__main__":
