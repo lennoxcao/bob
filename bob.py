@@ -21,6 +21,7 @@ class bob:
     DEVICENAME = "/dev/ttyUSB0"  # Adjust to your port
     TORQUE_ENABLE = 1
     TORQUE_DISABLE = 0
+    # right motors start with 2, left motors start with 1
     dynaindex = [21, 22, 23, 24, 25, 11, 12, 13, 14, 15]
 
     def __init__(self):
@@ -33,109 +34,140 @@ class bob:
         self.joint_angles_right = [0, 0, 0, 0, 0]
         self.joint_angles_left = [0, 0, 0, 0, 0]
         # kinematics parameter (a, alpha, d, theta)
-        joints_right = [
-            [55.3, np.pi, 0, np.pi / 2],
-            [35.175, np.pi / 2, -47.45, -np.pi / 2],
-            [0, np.pi / 2, -55.55, 0],
-            [-108.5, 0, 0, np.pi],
-            [-99.5, 0, 0, 0],
+        right_joint1 = [np.pi, 0, self.joint_angles_right[0], 0, -55.3, 0]
+        left_joint1 = [0, np.pi, self.joint_angles_left[0], 0, -55.3, 0]
+        right_joint2 = [
+            np.pi / 2,
+            -np.pi / 2,
+            self.joint_angles_right[1],
+            -35.175,
+            -59.25,
+            0,
         ]
-        joints_left = joints_right * np.array([1, -1, -1, 1])
-        # DH Parameters for 5 joints in radians (theta, d, a, alpha)
-        # Replace these values with actual DH parameters for your robot arm.
-        dh_params = [
-            (np.pi / 2, 0.0, 55.3, np.pi),  # Joint 1
-            (np.pi / 2, -35.175, -35.175, np.pi / 2),  # Joint 2
-            (1.0472, 0.2, 0.3, -1.5708),  # Joint 3
-            (1.5708, 0.3, 0.2, 1.5708),  # Joint 4
-            (2.0944, 0.4, 0.1, 0.0),  # Joint 5
+        left_joint2 = [
+            np.pi / 2,
+            np.pi / 2,
+            self.joint_angles_left[1],
+            35.175,
+            -59.25,
+            0,
         ]
-        # define dh_transformation matrices
-        self.dh_transform_right = []
-        self.dh_transform_left = []
-        for i in range(5):
-            a, alpha, d, theta = joints_right[i]
-            self.dh_transform_right.append(
-                np.array(
-                    [
-                        [
-                            np.cos(theta),
-                            -np.sin(theta) * np.cos(alpha),
-                            np.sin(theta) * np.sin(alpha),
-                            a * np.cos(theta),
-                        ],
-                        [
-                            np.sin(theta),
-                            np.cos(theta) * np.cos(alpha),
-                            -np.cos(theta) * np.sin(alpha),
-                            a * np.sin(theta),
-                        ],
-                        [0, np.sin(alpha), np.cos(alpha), d],
-                        [0, 0, 0, 1],
-                    ]
-                )
-            )
-            a, alpha, d, theta = joints_left[i]
-            self.dh_transform_left.append(
-                np.array(
-                    [
-                        [
-                            np.cos(theta),
-                            -np.sin(theta) * np.cos(alpha),
-                            np.sin(theta) * np.sin(alpha),
-                            a * np.cos(theta),
-                        ],
-                        [
-                            np.sin(theta),
-                            np.cos(theta) * np.cos(alpha),
-                            -np.cos(theta) * np.sin(alpha),
-                            a * np.sin(theta),
-                        ],
-                        [0, np.sin(alpha), np.cos(alpha), d],
-                        [0, 0, 0, 1],
-                    ]
-                )
-            )
+        right_joint3 = [
+            np.pi / 2,
+            np.pi / 2,
+            np.pi / 2 + self.joint_angles_right[2],
+            0,
+            -33.125,
+            0,
+        ]
+        left_joint3 = [
+            np.pi / 2,
+            -np.pi / 2,
+            -np.pi / 2 + self.joint_angles_left[2],
+            0,
+            -33.125,
+            0,
+        ]
+        right_joint4 = [np.pi, 0, self.joint_angles_right[3], 0, 108.5, 0]
+        left_joint4 = [np.pi, 0, self.joint_angles_left[3], 0, 108.5, 0]
+        right_joint5 = [0, np.pi, self.joint_angles_right[4], 0, 97, 0]
+        left_joint5 = [0, np.pi, self.joint_angles_left[4], 0, 97, 0]
+        self.right_joints_para = [
+            right_joint1,
+            right_joint2,
+            right_joint3,
+            right_joint4,
+            right_joint5,
+        ]
+        self.left_joints_para = [
+            left_joint1,
+            left_joint2,
+            left_joint3,
+            left_joint4,
+            left_joint5,
+        ]
 
+        # Initialize Dynamixel
         self.port_handler = PortHandler(self.DEVICENAME)
         self.packet_handler = PacketHandler(self.PROTOCOL_VERSION)
         # Open port
         if not self.port_handler.openPort():
             raise Exception("Failed to open port")
-    
         # Set baudrate
         if not self.port_handler.setBaudRate(self.BAUDRATE):
             raise Exception("Failed to set baudrate")
-        
         for i in self.dynaindex:
-            self.packet_handler.write1ByteTxRx(self.port_handler, i, self.ADDR_OPERATING_MODE, self.POSITION_CONTROL_MODE)
+            self.packet_handler.write1ByteTxRx(
+                self.port_handler,
+                i,
+                self.ADDR_OPERATING_MODE,
+                self.POSITION_CONTROL_MODE,
+            )
             dxl_comm_result, dxl_error = (self.packet_handler).write1ByteTxRx(
                 self.port_handler, i, self.ADDR_TORQUE_ENABLE, self.TORQUE_ENABLE
             )
             if dxl_comm_result != COMM_SUCCESS or dxl_error != 0:
                 raise Exception("Failed to enable torque")
 
+        # Initialize dyanmixel
         self.imu = ICM20948()
         # roll, pitch, and yaw of system reference frame
         self.roll = 0
         self.pitch = 0
         self.yaw = 0
 
-    # Calculate the transformation matrix of a given joint with regards to system reference frame
-    def forward_kinematics(self, target_joint, side):
-        if side == "right":
-            dh_transform = self.dh_transform_right
-            joint_angles = self.joint_angles_right
+    # Calculate transformation matrix based on joint parameters
+    def edh_transform(self, side, index):
+        """
+        Compute the Expanded Denavit-Hartenberg (EDH) transformation matrix
+        using parameters theta, d, alpha, a, r, and b.
+        """
+
+        def Rz(theta, d):
+            """Rotation and translation matrix about the Z-axis by angle theta."""
+            return np.array(
+                [
+                    [np.cos(theta), -np.sin(theta), 0, 0],
+                    [np.sin(theta), np.cos(theta), 0, 0],
+                    [0, 0, 1, d],
+                    [0, 0, 0, 1],
+                ]
+            )
+
+        def Rx(alpha, a):
+            """Rotation and translation matrix about the X-axis by angle alpha."""
+            return np.array(
+                [
+                    [1, 0, 0, a],
+                    [0, np.cos(alpha), -np.sin(alpha), 0],
+                    [0, np.sin(alpha), np.cos(alpha), 0],
+                    [0, 0, 0, 1],
+                ]
+            )
+
+        def Ry(r, b):
+            """Additional rotation matrix about the Y-axis by angle r."""
+            return np.array(
+                [
+                    [np.cos(r), 0, np.sin(r), 0],
+                    [0, 1, 0, b],
+                    [-np.sin(r), 0, np.cos(r), 0],
+                    [0, 0, 0, 1],
+                ]
+            )
+
+        if side == "left":
+            joint = self.left_joints_para[index]
         else:
-            dh_transform = self.dh_transform_left
-            joint_angles = self.joint_angles_left
-        T = np.eye(4)  # Initialize as identity matrix
-        for i in range(target_joint):
-            theta += joint_angles[i]  # Add the joint angle to the theta parameter
-            T_i = dh_transform[i]
-            T = np.dot(T, T_i)  # Multiply the current transformation
-        return T
-    
+            joint = self.right_joints_para[index]
+        [r, alpha, theta, b, a, d] = joint
+        # Combine transformations in the order specified by EDH convention
+        T = Ry(r, b) @ Rx(alpha, a) @ Rz(theta, d)
+        if index == 0:
+            return T
+        else:
+            return T @ self.edh_transform(joint, side, index - 1)
+
     # Set dynamixel position
     def set_dynamixel_position(self, position, id):
         """if position > 1500:
@@ -174,11 +206,11 @@ class bob:
         self.pitch = pitch
 
     # Helper: Given angle of motor, return the position
-    def angle_to_position(self,angle):
+    def angle_to_position(self, angle):
         return int(((-angle + 90) / 360.0) * 4095)
 
     # Helper: Given position of motor, return the angle
-    def position_to_angle(self,position):
+    def position_to_angle(self, position):
         return -int((position / 4095.0) * 360.0)
 
     # Update the angle of each motor
@@ -188,9 +220,7 @@ class bob:
             packetHandler = self.packet_handler
             portHandler = self.port_handler
             dxl_present_position, dxl_comm_result, dxl_error = (
-                packetHandler.read4ByteTxRx(
-                    portHandler, id, self.ADDR_PRESENT_POSITION
-                )
+                packetHandler.read4ByteTxRx(portHandler, id, self.ADDR_PRESENT_POSITION)
             )
             if dxl_comm_result != COMM_SUCCESS:
                 print(
@@ -201,7 +231,9 @@ class bob:
                 print("Error: %s" % packetHandler.getRxPacketError(dxl_error))
             else:
                 if i <= 4:
-                    self.joint_angles_right[i] = self.position_to_angle(dxl_present_position)
+                    self.joint_angles_right[i] = self.position_to_angle(
+                        dxl_present_position
+                    )
                 else:
                     self.joint_angles_left[i - 5] = self.position_to_angle(
                         dxl_present_position
@@ -217,12 +249,15 @@ class bob:
     # Disable torque and close port
     def terminate(self):
         for i in self.dynaindex:
-            self.packet_handler.write1ByteTxRx(self.port_handler,i,self.ADDR_TORQUE_ENABLE,self.TORQUE_DISABLE)
+            self.packet_handler.write1ByteTxRx(
+                self.port_handler, i, self.ADDR_TORQUE_ENABLE, self.TORQUE_DISABLE
+            )
         self.port_handler.closePort()
+
 
 try:
     bob1 = bob()
-    bob1.set_dynamixel_position(2000,bob1.dynaindex[4])
+    bob1.set_dynamixel_position(2000, bob1.dynaindex[4])
     bob1.update_motor_angles()
 except KeyboardInterrupt:
     # Disable Dynamixel torque before quitting
