@@ -211,7 +211,12 @@ class bob:
 
     # Helper: Given position of motor, return the angle
     def position_to_angle(self, position):
-        return -int((position / 4095.0) * 360.0)
+        angle = int((position / 4095.0) * 360.0)
+        if angle>=360:
+            angle -= 360
+        if angle>180:
+            angle -= 360
+        return angle
 
     # Update the angle of each motor
     def update_motor_angles(self):
@@ -230,14 +235,15 @@ class bob:
             elif dxl_error != 0:
                 print("Error: %s" % packetHandler.getRxPacketError(dxl_error))
             else:
+                new_angle = self.position_to_angle(
+                        dxl_present_position
+                    )
                 if i <= 4:
-                    self.joint_angles_right[i] = self.position_to_angle(
-                        dxl_present_position
-                    )
+                    self.joint_angles_right[i] = new_angle
+                    self.right_joints_para[i] += np.array([0,0,new_angle/np.pi,0,0,0])
                 else:
-                    self.joint_angles_left[i - 5] = self.position_to_angle(
-                        dxl_present_position
-                    )
+                    self.joint_angles_left[i - 5] = new_angle
+                    self.left_joints_para[i-5] += np.array([0,0,new_angle/np.pi,0,0,0])
 
     # Return the roll and pitch of a given joint relative to absolute reference frame
     def get_abs_joint_angle(self, joint, side):
@@ -245,6 +251,20 @@ class bob:
         roll = np.arctan2(T[2, 1], T[2, 2])
         pitch = np.arctan2(-T[2, 0], np.sqrt(T[2, 1] ** 2 + T[2, 2] ** 2))
         return roll + self.roll, pitch + self.pitch
+
+    # Disable torque
+    def disable_torque(self):
+        for i in self.dynaindex:
+            self.packet_handler.write1ByteTxRx(
+                self.port_handler, i, self.ADDR_TORQUE_ENABLE, self.TORQUE_DISABLE
+            )
+    
+    # Enable torque
+    def enable_torque(self):
+        for i in self.dynaindex:
+            self.packet_handler.write1ByteTxRx(
+                self.port_handler, i, self.ADDR_TORQUE_ENABLE, self.TORQUE_ENABLE
+            )
 
     # Disable torque and close port
     def terminate(self):
@@ -255,10 +275,11 @@ class bob:
         self.port_handler.closePort()
 
 
-try:
-    bob1 = bob()
-    bob1.set_dynamixel_position(2000, bob1.dynaindex[4])
+
+bob1 = bob()
+bob1.disable_torque()
+while(True):
     bob1.update_motor_angles()
-except KeyboardInterrupt:
-    # Disable Dynamixel torque before quitting
-    bob1.terminate()
+    print(bob1.joint_angles_right)
+    print(bob1.right_joints_para)
+    input('wait')
