@@ -38,6 +38,8 @@ class bob:
         self.joint_angles_left = [0, 0, 0, 0, 0]
         self.initial_angle_left = [180, 180, 180, 180, 270]
         # kinematics parameter (a, alpha, d, theta)
+        right_joint0 = [0, 0, 0, 0, 0, 2]
+        left_joint0 = [0, 0, 0, 0, 0, 2]
         right_joint1 = [np.pi, 0, self.joint_angles_right[0], 0, -55.3, 0]
         left_joint1 = [0, np.pi, self.joint_angles_left[0], 0, -55.3, 0]
         right_joint2 = [
@@ -77,6 +79,7 @@ class bob:
         right_joint5 = [0, np.pi, self.joint_angles_right[4], 0, 97, 0]
         left_joint5 = [0, np.pi, self.joint_angles_left[4], 0, 97, 0]
         self.right_joints_para = [
+            right_joint0,
             right_joint1,
             right_joint2,
             right_joint3,
@@ -84,6 +87,7 @@ class bob:
             right_joint5,
         ]
         self.left_joints_para = [
+            left_joint0,
             left_joint1,
             left_joint2,
             left_joint3,
@@ -119,7 +123,6 @@ class bob:
         # roll, pitch, and yaw of system reference frame
         self.roll = 0
         self.pitch = 0
-        self.yaw = 0
 
     # Calculate transformation matrix based on joint parameters
     def edh_transform(self, side, index):
@@ -167,10 +170,11 @@ class bob:
             joint = self.right_joints_para[index]
         [r, alpha, theta, b, a, d] = joint
         # Combine transformations in the order specified by EDH convention
-        T = Ry(r, b) @ Rx(alpha, a) @ Rz(theta, d)
+
         if index == 0:
-            return T
+            return Rz(theta, d) @ Ry(r, b) @ Rx(alpha, a)
         else:
+            T = Ry(r, b) @ Rx(alpha, a) @ Rz(theta, d)
             return self.edh_transform(side, index - 1) @ T
 
     # Set dynamixel position
@@ -209,6 +213,8 @@ class bob:
         )
         self.roll = roll
         self.pitch = pitch
+        self.left_joints_para[0] += [self.pitch, self.roll, 0, 0, 0, 0]
+        self.right_joints_para[0] += [self.pitch, self.roll, 0, 0, 0, 0]
 
     # Helper: Given angle of motor, return the position
     def angle_to_position(self, angle):
