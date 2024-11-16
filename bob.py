@@ -1,8 +1,9 @@
 import numpy as np
-from icm20948 import ICM20948  # ICM20948 Python package for IMU
 from dynamixel_sdk import *  # Dynamixel SDK library for controlling the motor
 import math
 
+imu = False
+# from icm20948 import ICM20948  # ICM20948 Python package for IMU
 # {left_hip_1:11,left_hip_2:12,left_hip_3:13,left_knee:14,left_ankle:15,right_hip_1:21,right_hip_2:22,right_hip_3:23,right_knee:24}
 # neutral motor angle: {hip1:180,hip2:180}
 
@@ -18,7 +19,8 @@ class bob:
     POSITION_CONTROL_MODE = 3  # Value for setting position control mode
     PROTOCOL_VERSION = 2.0
     BAUDRATE = 57600
-    DEVICENAME = "/dev/ttyUSB0"  # Adjust to your port
+    # DEVICENAME = "/dev/ttyUSB0"  # Adjust to your port
+    DEVICENAME = "/dev/cu.usbserial-FT9BTH5F"
     TORQUE_ENABLE = 1
     TORQUE_DISABLE = 0
     # right motors start with 2, left motors start with 1
@@ -32,7 +34,9 @@ class bob:
         self.joints_left = self.dynaindex[5:]
         # Initialized motor positions
         self.joint_angles_right = [0, 0, 0, 0, 0]
+        self.initial_angle_right = [180, 180, 180, 0, 90]
         self.joint_angles_left = [0, 0, 0, 0, 0]
+        self.initial_angle_left = [180, 180, 180, 180, 270]
         # kinematics parameter (a, alpha, d, theta)
         right_joint1 = [np.pi, 0, self.joint_angles_right[0], 0, -55.3, 0]
         left_joint1 = [0, np.pi, self.joint_angles_left[0], 0, -55.3, 0]
@@ -110,7 +114,8 @@ class bob:
                 raise Exception("Failed to enable torque")
 
         # Initialize dyanmixel
-        self.imu = ICM20948()
+        if imu:
+            self.imu = ICM20948()
         # roll, pitch, and yaw of system reference frame
         self.roll = 0
         self.pitch = 0
@@ -166,7 +171,7 @@ class bob:
         if index == 0:
             return T
         else:
-            return T @ self.edh_transform(joint, side, index - 1)
+            return self.edh_transform(side, index - 1) @ T
 
     # Set dynamixel position
     def set_dynamixel_position(self, position, id):
@@ -207,16 +212,20 @@ class bob:
 
     # Helper: Given angle of motor, return the position
     def angle_to_position(self, angle):
-        return int(((-angle + 90) / 360.0) * 4095)
+        return int((angle / 360.0) * 4095)
+
+    # Normalize angle
+    def normalize_angle(self, angle):
+        while angle > 360:
+            angle -= 360
+        while angle < 0:
+            angle += 360
+        return angle
 
     # Helper: Given position of motor, return the angle
     def position_to_angle(self, position):
         angle = int((position / 4095.0) * 360.0)
-        if angle>=360:
-            angle -= 360
-        if angle>180:
-            angle -= 360
-        return angle
+        return self.normalize_angle(angle)
 
     # Update the angle of each motor
     def update_motor_angles(self):
@@ -235,15 +244,23 @@ class bob:
             elif dxl_error != 0:
                 print("Error: %s" % packetHandler.getRxPacketError(dxl_error))
             else:
-                new_angle = self.position_to_angle(
-                        dxl_present_position
-                    )
+                new_angle = self.position_to_angle(dxl_present_position)
                 if i <= 4:
+                    new_angle -= self.initial_angle_right[i]
+                    new_angle = self.normalize_angle(new_angle)
+                    old_angle = self.joint_angles_right[i]
                     self.joint_angles_right[i] = new_angle
-                    self.right_joints_para[i] += np.array([0,0,new_angle/np.pi,0,0,0])
+                    self.right_joints_para[i] += np.array(
+                        [0, 0, ((new_angle - old_angle) / 180) * np.pi, 0, 0, 0]
+                    )
                 else:
+                    new_angle -= self.initial_angle_left[i - 5]
+                    new_angle = self.normalize_angle(new_angle)
+                    old_angle = self.joint_angles_left[i - 5]
                     self.joint_angles_left[i - 5] = new_angle
-                    self.left_joints_para[i-5] += np.array([0,0,new_angle/np.pi,0,0,0])
+                    self.left_joints_para[i - 5] += np.array(
+                        [0, 0, ((new_angle - old_angle) / 180) * np.pi, 0, 0, 0]
+                    )
 
     # Return the roll and pitch of a given joint relative to absolute reference frame
     def get_abs_joint_angle(self, joint, side):
@@ -258,13 +275,37 @@ class bob:
             self.packet_handler.write1ByteTxRx(
                 self.port_handler, i, self.ADDR_TORQUE_ENABLE, self.TORQUE_DISABLE
             )
-    
+
     # Enable torque
     def enable_torque(self):
         for i in self.dynaindex:
             self.packet_handler.write1ByteTxRx(
                 self.port_handler, i, self.ADDR_TORQUE_ENABLE, self.TORQUE_ENABLE
             )
+
+    # Update the joints and return the coordinates of the joints
+    def get_coordinates(self):
+        self.update_motor_angles()
+        x_left = np.zeros(5)
+        y_left = np.zeros(5)
+        z_left = np.zeros(5)
+        x_right = np.zeros(5)
+        y_right = np.zeros(5)
+        z_right = np.zeros(5)
+        for i in range(5):
+            [x_left[i], y_left[i], z_left[i], a] = self.edh_transform("left", i) @ [
+                0,
+                0,
+                0,
+                1,
+            ]
+            [x_right[i], y_right[i], z_right[i], a] = self.edh_transform("right", i) @ [
+                0,
+                0,
+                0,
+                1,
+            ]
+        return [[x_left, y_left, z_left], [x_right, y_right, z_right]]
 
     # Disable torque and close port
     def terminate(self):
@@ -275,11 +316,10 @@ class bob:
         self.port_handler.closePort()
 
 
-
-bob1 = bob()
+"""bob1 = bob()
 bob1.disable_torque()
-while(True):
+while True:
     bob1.update_motor_angles()
     print(bob1.joint_angles_right)
     print(bob1.right_joints_para)
-    input('wait')
+    input("wait")"""
