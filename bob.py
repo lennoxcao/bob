@@ -2,8 +2,8 @@ import numpy as np
 from dynamixel_sdk import *  # Dynamixel SDK library for controlling the motor
 import math
 
-imu = False
-# from icm20948 import ICM20948  # ICM20948 Python package for IMU
+imu = True
+from icm20948 import ICM20948  # ICM20948 Python package for IMU
 # {left_hip_1:11,left_hip_2:12,left_hip_3:13,left_knee:14,left_ankle:15,right_hip_1:21,right_hip_2:22,right_hip_3:23,right_knee:24}
 # neutral motor angle: {hip1:180,hip2:180}
 
@@ -19,8 +19,8 @@ class bob:
     POSITION_CONTROL_MODE = 3  # Value for setting position control mode
     PROTOCOL_VERSION = 2.0
     BAUDRATE = 57600
-    # DEVICENAME = "/dev/ttyUSB0"  # Adjust to your port
-    DEVICENAME = "/dev/cu.usbserial-FT9BTH5F"
+    DEVICENAME = "/dev/ttyUSB0"  # pi
+    #DEVICENAME = "/dev/cu.usbserial-FT9BTH5F"  #mac
     TORQUE_ENABLE = 1
     TORQUE_DISABLE = 0
     # right motors start with 2, left motors start with 1
@@ -193,7 +193,7 @@ class bob:
             )
 
     # Update system reference frame roll and pitch with imu data (need time delay in main loop)
-    def update_reference_angle(self):
+    def update_reference_angle(self,t):
         alpha = 0.98
         try:
             ax, ay, az, gx, gy, gz = self.imu.read_accelerometer_gyro_data()
@@ -207,9 +207,9 @@ class bob:
         gyro_pitch_rate = gy
 
         # Update roll and pitch using the complementary filter
-        roll = alpha * (self.roll + gyro_roll_rate * self.dt) + (1 - alpha) * accel_roll
+        roll = alpha * (self.roll + gyro_roll_rate * t) + (1 - alpha) * accel_roll
         pitch = (
-            alpha * (self.pitch + gyro_pitch_rate * self.dt) + (1 - alpha) * accel_pitch
+            alpha * (self.pitch + gyro_pitch_rate * t) + (1 - alpha) * accel_pitch
         )
         self.roll = roll
         self.pitch = pitch
@@ -298,7 +298,7 @@ class bob:
         x_right = np.zeros(5)
         y_right = np.zeros(5)
         z_right = np.zeros(5)
-        for i in range(5):
+        for i in range(6):
             [x_left[i], y_left[i], z_left[i], a] = self.edh_transform("left", i) @ [
                 0,
                 0,
