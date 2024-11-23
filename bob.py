@@ -38,8 +38,8 @@ class bob:
         self.joint_angles_left = [0, 0, 0, 0, 0]
         self.initial_angle_left = [180, 180, 180, 180, 270]
         # kinematics parameter (a, alpha, d, theta)
-        right_joint0 = [0, 0, 0, 0, 0, 2]
-        left_joint0 = [0, 0, 0, 0, 0, 2]
+        right_joint0 = np.array([0, 0, 0, 0, 0, 2],dtype = 'float64')
+        left_joint0 = np.array([0, 0, 0, 0, 0, 2],dtype = 'float64')
         right_joint1 = [np.pi, 0, self.joint_angles_right[0], 0, -55.3, 0]
         left_joint1 = [0, np.pi, self.joint_angles_left[0], 0, -55.3, 0]
         right_joint2 = [
@@ -211,8 +211,8 @@ class bob:
         pitch = (
             alpha * (self.pitch + gyro_pitch_rate * t) + (1 - alpha) * accel_pitch
         )
-        self.roll = roll
-        self.pitch = pitch
+        self.roll = roll/180*np.pi
+        self.pitch = pitch/180*np.pi
         self.left_joints_para[0] += [self.pitch, self.roll, 0, 0, 0, 0]
         self.right_joints_para[0] += [self.pitch, self.roll, 0, 0, 0, 0]
 
@@ -256,7 +256,7 @@ class bob:
                     new_angle = self.normalize_angle(new_angle)
                     old_angle = self.joint_angles_right[i]
                     self.joint_angles_right[i] = new_angle
-                    self.right_joints_para[i] += np.array(
+                    self.right_joints_para[i+1] += np.array(
                         [0, 0, ((new_angle - old_angle) / 180) * np.pi, 0, 0, 0]
                     )
                 else:
@@ -264,7 +264,7 @@ class bob:
                     new_angle = self.normalize_angle(new_angle)
                     old_angle = self.joint_angles_left[i - 5]
                     self.joint_angles_left[i - 5] = new_angle
-                    self.left_joints_para[i - 5] += np.array(
+                    self.left_joints_para[i - 5 + 1] += np.array(
                         [0, 0, ((new_angle - old_angle) / 180) * np.pi, 0, 0, 0]
                     )
 
@@ -292,12 +292,12 @@ class bob:
     # Update the joints and return the coordinates of the joints
     def get_coordinates(self):
         self.update_motor_angles()
-        x_left = np.zeros(5)
-        y_left = np.zeros(5)
-        z_left = np.zeros(5)
-        x_right = np.zeros(5)
-        y_right = np.zeros(5)
-        z_right = np.zeros(5)
+        x_left = np.zeros(6)
+        y_left = np.zeros(6)
+        z_left = np.zeros(6)
+        x_right = np.zeros(6)
+        y_right = np.zeros(6)
+        z_right = np.zeros(6)
         for i in range(6):
             [x_left[i], y_left[i], z_left[i], a] = self.edh_transform("left", i) @ [
                 0,
