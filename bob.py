@@ -4,6 +4,7 @@ import math
 
 imu = True
 from icm20948 import ICM20948  # ICM20948 Python package for IMU
+
 # {left_hip_1:11,left_hip_2:12,left_hip_3:13,left_knee:14,left_ankle:15,right_hip_1:21,right_hip_2:22,right_hip_3:23,right_knee:24}
 # neutral motor angle: {hip1:180,hip2:180}
 
@@ -20,7 +21,7 @@ class bob:
     PROTOCOL_VERSION = 2.0
     BAUDRATE = 57600
     DEVICENAME = "/dev/ttyUSB0"  # pi
-    #DEVICENAME = "/dev/cu.usbserial-FT9BTH5F"  #mac
+    # DEVICENAME = "/dev/cu.usbserial-FT9BTH5F"  #mac
     TORQUE_ENABLE = 1
     TORQUE_DISABLE = 0
     # right motors start with 2, left motors start with 1
@@ -38,8 +39,8 @@ class bob:
         self.joint_angles_left = [0, 0, 0, 0, 0]
         self.initial_angle_left = [180, 180, 180, 180, 270]
         # kinematics parameter (a, alpha, d, theta)
-        right_joint0 = np.array([0, 0, 0, 0, 0, 2],dtype = 'float64')
-        left_joint0 = np.array([0, 0, 0, 0, 0, 2],dtype = 'float64')
+        right_joint0 = np.array([0, 0, 0, 0, 0, 2], dtype="float64")
+        left_joint0 = np.array([0, 0, 0, 0, 0, 2], dtype="float64")
         right_joint1 = [np.pi, 0, self.joint_angles_right[0], 0, -55.3, 0]
         left_joint1 = [0, np.pi, self.joint_angles_left[0], 0, -55.3, 0]
         right_joint2 = [
@@ -193,7 +194,7 @@ class bob:
             )
 
     # Update system reference frame roll and pitch with imu data (need time delay in main loop)
-    def update_reference_angle(self,t):
+    def update_reference_angle(self, t):
         alpha = 0.98
         try:
             ax, ay, az, gx, gy, gz = self.imu.read_accelerometer_gyro_data()
@@ -208,11 +209,9 @@ class bob:
 
         # Update roll and pitch using the complementary filter
         roll = alpha * (self.roll + gyro_roll_rate * t) + (1 - alpha) * accel_roll
-        pitch = (
-            alpha * (self.pitch + gyro_pitch_rate * t) + (1 - alpha) * accel_pitch
-        )
-        self.roll = roll/180*np.pi
-        self.pitch = pitch/180*np.pi
+        pitch = alpha * (self.pitch + gyro_pitch_rate * t) + (1 - alpha) * accel_pitch
+        self.roll = roll / 180 * np.pi
+        self.pitch = pitch / 180 * np.pi
         self.left_joints_para[0] += [self.pitch, self.roll, 0, 0, 0, 0]
         self.right_joints_para[0] += [self.pitch, self.roll, 0, 0, 0, 0]
 
@@ -256,7 +255,7 @@ class bob:
                     new_angle = self.normalize_angle(new_angle)
                     old_angle = self.joint_angles_right[i]
                     self.joint_angles_right[i] = new_angle
-                    self.right_joints_para[i+1] += np.array(
+                    self.right_joints_para[i + 1] += np.array(
                         [0, 0, ((new_angle - old_angle) / 180) * np.pi, 0, 0, 0]
                     )
                 else:
@@ -320,6 +319,16 @@ class bob:
                 self.port_handler, i, self.ADDR_TORQUE_ENABLE, self.TORQUE_DISABLE
             )
         self.port_handler.closePort()
+
+    # Sync ankle
+    def sync_ankle(self):
+        angle_left = self.normalize_angle(
+            self.roll / np.pi * 180 + np.sum(self.joint_angles_right)
+        )
+        angle_right = self.normalize_angle(
+            self.roll / np.pi * 180 + np.sum(self.joint_angles_left)
+        )
+        print(angle_right)
 
 
 """bob1 = bob()
