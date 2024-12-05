@@ -184,7 +184,6 @@ class bob:
             position = 1500
         elif position < 478:
             position = 478"""
-        print(position)
         dxl_comm_result, dxl_error = (self.packet_handler).write4ByteTxRx(
             self.port_handler, id, self.ADDR_GOAL_POSITION, position
         )
@@ -208,20 +207,20 @@ class bob:
         gyro_pitch_rate = gy
 
         # Update roll and pitch using the complementary filter
-        roll = alpha * (self.roll + gyro_roll_rate * t) + (1 - alpha) * accel_roll
-        pitch = alpha * (self.pitch + gyro_pitch_rate * t) + (1 - alpha) * accel_pitch
-        self.roll = roll / 180 * np.pi
-        self.pitch = pitch / 180 * np.pi
+        roll = alpha * (self.roll + gyro_roll_rate * t) + (1 - alpha) * accel_roll*t
+        pitch = alpha * (self.pitch + gyro_pitch_rate * t) + (1 - alpha) * accel_pitch*t
+        self.roll = roll
+        self.pitch = pitch
         self.left_joints_para[0] += [self.pitch, self.roll, 0, 0, 0, 0]
         self.right_joints_para[0] += [self.pitch, self.roll, 0, 0, 0, 0]
 
     # Helper: Given angle of motor, return the position
     def angle_to_position(self, angle):
-        return int((angle / 360.0) * 4095)
+        return int((self.normalize_angle(angle) / 360.0) * 4095)
 
     # Normalize angle
     def normalize_angle(self, angle):
-        while angle > 360:
+        while angle >= 360:
             angle -= 360
         while angle < 0:
             angle += 360
@@ -323,18 +322,26 @@ class bob:
     # Sync ankle
     def sync_ankle(self):
         angle_left = self.normalize_angle(
-            self.roll / np.pi * 180 + np.sum(self.joint_angles_right)
+            self.roll + np.sum(self.joint_angles_left[2:4])
         )
         angle_right = self.normalize_angle(
-            self.roll / np.pi * 180 + np.sum(self.joint_angles_left)
+            self.roll+np.sum(self.joint_angles_right[2:4])
         )
+        if angle_right > 48 and angle_right <=180:
+            angle_right = 48
+        elif angle_right <312 and angle_right >= 180:
+            angle_right = 312
         print(angle_right)
+        self.set_dynamixel_position(self.angle_to_position(-angle_right),25)
 
 
-"""bob1 = bob()
-bob1.disable_torque()
+bob1 = bob()
+start = time.time()
 while True:
     bob1.update_motor_angles()
-    print(bob1.joint_angles_right)
-    print(bob1.right_joints_para)
-    input("wait")"""
+    end = time.time()
+    bob1.update_reference_angle(end-start)
+    start = time.time()
+    bob1.sync_ankle()
+    time.sleep(0.01)
+    
