@@ -280,6 +280,13 @@ class bob:
                 self.port_handler, i, self.ADDR_TORQUE_ENABLE, self.TORQUE_DISABLE
             )
 
+    def disable_torque_except_ankle(self):
+        for i in self.dynaindex:
+            if i != 15 and i != 25:
+                self.packet_handler.write1ByteTxRx(
+                    self.port_handler, i, self.ADDR_TORQUE_ENABLE, self.TORQUE_DISABLE
+                )
+
     # Enable torque
     def enable_torque(self):
         for i in self.dynaindex:
@@ -322,26 +329,31 @@ class bob:
     # Sync ankle
     def sync_ankle(self):
         angle_left = self.normalize_angle(
-            self.roll + np.sum(self.joint_angles_left[2:4])
+            self.roll - self.joint_angles_left[2]+self.joint_angles_left[3]
         )
         angle_right = self.normalize_angle(
-            self.roll+np.sum(self.joint_angles_right[2:4])
+            self.roll-self.joint_angles_right[2]+self.joint_angles_right[3]
         )
         if angle_right > 48 and angle_right <=180:
-            angle_right = 48
+            angle_right = 47
         elif angle_right <312 and angle_right >= 180:
-            angle_right = 312
-        print(angle_right)
-        self.set_dynamixel_position(self.angle_to_position(-angle_right),25)
+            angle_right = 311
+        if angle_left > 47 and angle_left <=180:
+            angle_left = 47
+        elif angle_left <312 and angle_left >= 180:
+            angle_left = 311
+        self.set_dynamixel_position(self.angle_to_position(angle_right+self.initial_angle_right[4]),25)
+        self.set_dynamixel_position(self.angle_to_position(angle_left+self.initial_angle_left[4]),15)
 
 
 bob1 = bob()
 start = time.time()
+bob1.disable_torque_except_ankle()
 while True:
     bob1.update_motor_angles()
     end = time.time()
     bob1.update_reference_angle(end-start)
     start = time.time()
     bob1.sync_ankle()
-    time.sleep(0.01)
+    time.sleep(0.0001)
     
