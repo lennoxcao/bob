@@ -33,7 +33,7 @@ class bob:
         # list of all the motorized joints
         self.joints_right = self.dynaindex[:5]
         self.joints_left = self.dynaindex[5:]
-        # Initialized motor positions
+        # Initialized motor positions (degrees)
         self.joint_angles_right = [0, 0, 0, 0, 0]
         self.initial_angle_right = [180, 180, 180, 0, 90]
         self.joint_angles_left = [0, 0, 0, 0, 0]
@@ -121,7 +121,7 @@ class bob:
         # Initialize dyanmixel
         if imu:
             self.imu = ICM20948()
-        # roll, pitch, and yaw of system reference frame
+        # roll, pitch, and yaw of system reference frame (degrees)
         self.roll = 0
         self.pitch = 0
 
@@ -211,8 +211,8 @@ class bob:
         pitch = alpha * (self.pitch + gyro_pitch_rate * t) + (1 - alpha) * accel_pitch*t
         self.roll = roll
         self.pitch = pitch
-        self.left_joints_para[0] += [self.pitch/180*np.pi, self.roll/180*np.pi, 0, 0, 0, 0]
-        self.right_joints_para[0] += [self.pitch/180*np.pi, self.roll/180*np.pi, 0, 0, 0, 0]
+        self.left_joints_para[0] = [self.pitch/180*np.pi, self.roll/180*np.pi, 0, 0, 0, 2]
+        self.right_joints_para[0] = [self.pitch/180*np.pi, self.roll/180*np.pi, 0, 0, 0, 2]
 
     # Helper: Given angle of motor, return the position
     def angle_to_position(self, angle):
@@ -329,7 +329,7 @@ class bob:
     # Sync ankle
     def sync_ankle(self):
         angle_left = self.normalize_angle(
-            self.roll + self.joint_angles_left[2]-self.joint_angles_left[3]
+            -self.roll + self.joint_angles_left[2]-self.joint_angles_left[3]
         )
         angle_right = self.normalize_angle(
             self.roll-self.joint_angles_right[2]+self.joint_angles_right[3]
@@ -348,12 +348,11 @@ class bob:
 
 """bob1 = bob()
 start = time.time()
-bob1.disable_torque_except_ankle()
+#bob1.disable_torque_except_ankle()
 while True:
     bob1.update_motor_angles()
     end = time.time()
     bob1.update_reference_angle(end-start)
     start = time.time()
     bob1.sync_ankle()
-    time.sleep(0.0001)
-    """
+    time.sleep(0.0001)"""

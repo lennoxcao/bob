@@ -43,4 +43,4 @@ def create_animation(coordinates_list, interval=500):
 
 with open("sequence1.pkl", "rb") as file:
     coordinates = pickle.load(file)
-create_animation(coordinates, interval=500)
+create_animation(coordinates, interval=80)
