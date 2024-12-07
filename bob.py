@@ -211,8 +211,8 @@ class bob:
         pitch = alpha * (self.pitch + gyro_pitch_rate * t) + (1 - alpha) * accel_pitch*t
         self.roll = roll
         self.pitch = pitch
-        self.left_joints_para[0] += [self.pitch, self.roll, 0, 0, 0, 0]
-        self.right_joints_para[0] += [self.pitch, self.roll, 0, 0, 0, 0]
+        self.left_joints_para[0] += [self.pitch/180*np.pi, self.roll/180*np.pi, 0, 0, 0, 0]
+        self.right_joints_para[0] += [self.pitch/180*np.pi, self.roll/180*np.pi, 0, 0, 0, 0]
 
     # Helper: Given angle of motor, return the position
     def angle_to_position(self, angle):
@@ -329,7 +329,7 @@ class bob:
     # Sync ankle
     def sync_ankle(self):
         angle_left = self.normalize_angle(
-            self.roll - self.joint_angles_left[2]+self.joint_angles_left[3]
+            self.roll + self.joint_angles_left[2]-self.joint_angles_left[3]
         )
         angle_right = self.normalize_angle(
             self.roll-self.joint_angles_right[2]+self.joint_angles_right[3]
@@ -346,7 +346,7 @@ class bob:
         self.set_dynamixel_position(self.angle_to_position(angle_left+self.initial_angle_left[4]),15)
 
 
-bob1 = bob()
+"""bob1 = bob()
 start = time.time()
 bob1.disable_torque_except_ankle()
 while True:
@@ -356,4 +356,4 @@ while True:
     start = time.time()
     bob1.sync_ankle()
     time.sleep(0.0001)
-    
+    """
