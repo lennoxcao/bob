@@ -13,7 +13,7 @@ import pickle
 def plot_2d_points_for_animation(ax, coordinates):
     x, y, z = coordinates
     ax.clear()  # Clear the previous frame
-    ax.plot(y, z, marker="o", linestyle="-", color="b", markerfacecolor="r")
+    ax.plot(-y, z, marker="o", linestyle="-", color="b", markerfacecolor="r")
     ax.set_xlim([-200, 200])
     ax.set_ylim([-300, 150])
     ax.set_xlabel("Y")
@@ -42,5 +42,5 @@ def create_animation(coordinates_list, interval=500):
 
 
 with open("sequence1.pkl", "rb") as file:
-    coordinates = pickle.load(file)
-create_animation(coordinates, interval=80)
+    coordinates,interval = pickle.load(file)
+create_animation(coordinates, interval=np.average(np.array(interval))*1000)

@@ -259,7 +259,7 @@ class bob:
                     )
                 else:
                     new_angle -= self.initial_angle_left[i - 5]
-                    new_angle = self.normalize_angle(new_angle)
+                    new_angle = -self.normalize_angle(new_angle)
                     old_angle = self.joint_angles_left[i - 5]
                     self.joint_angles_left[i - 5] = new_angle
                     self.left_joints_para[i - 5 + 1] += np.array(
