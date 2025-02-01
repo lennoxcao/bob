@@ -6,7 +6,7 @@ imu = True
 from icm20948 import ICM20948  # ICM20948 Python package for IMU
 
 # {left_hip_1:11,left_hip_2:12,left_hip_3:13,left_knee:14,left_ankle:15,right_hip_1:21,right_hip_2:22,right_hip_3:23,right_knee:24}
-# neutral motor angle: {hip1:180,hip2:180}
+# coordinate system is defined such that y points forward, z points upward
 
 
 class bob:
@@ -24,7 +24,7 @@ class bob:
     # DEVICENAME = "/dev/cu.usbserial-FT9BTH5F"  #mac
     TORQUE_ENABLE = 1
     TORQUE_DISABLE = 0
-    # right motors start with 2, left motors start with 1
+    # right motors start with 2, left motors start with 1 (top to bottom)
     dynaindex = [21, 22, 23, 24, 25, 11, 12, 13, 14, 15]
 
     def __init__(self):
@@ -95,6 +95,12 @@ class bob:
             left_joint4,
             left_joint5,
         ]
+        # Mass parameters
+        # [hip_body_connector, hip_joint_cover, top_hip_joint, lateral_hip_joint, femur, shin, ankle]
+        self.part_mass = [17.2, 8.8, 22.2, 12.5, 79, 32.8, 11.3]
+        # [x1, x2, x3, x4, x5]
+        self.motor_mass = [23, 65, 65, 23, 23]
+        self.total_mass = (np.sum(self.part_mass) + np.sum(self.motor_mass)) * 2
 
         # Initialize Dynamixel
         self.port_handler = PortHandler(self.DEVICENAME)
@@ -207,12 +213,28 @@ class bob:
         gyro_pitch_rate = gy
 
         # Update roll and pitch using the complementary filter
-        roll = alpha * (self.roll + gyro_roll_rate * t) + (1 - alpha) * accel_roll*t
-        pitch = alpha * (self.pitch + gyro_pitch_rate * t) + (1 - alpha) * accel_pitch*t
+        roll = alpha * (self.roll + gyro_roll_rate * t) + (1 - alpha) * accel_roll * t
+        pitch = (
+            alpha * (self.pitch + gyro_pitch_rate * t) + (1 - alpha) * accel_pitch * t
+        )
         self.roll = roll
         self.pitch = pitch
-        self.left_joints_para[0] = [self.pitch/180*np.pi, self.roll/180*np.pi, 0, 0, 0, 2]
-        self.right_joints_para[0] = [self.pitch/180*np.pi, self.roll/180*np.pi, 0, 0, 0, 2]
+        self.left_joints_para[0] = [
+            self.pitch / 180 * np.pi,
+            self.roll / 180 * np.pi,
+            0,
+            0,
+            0,
+            2,
+        ]
+        self.right_joints_para[0] = [
+            self.pitch / 180 * np.pi,
+            self.roll / 180 * np.pi,
+            0,
+            0,
+            0,
+            2,
+        ]
 
     # Helper: Given angle of motor, return the position
     def angle_to_position(self, angle):
@@ -318,6 +340,110 @@ class bob:
             ]
         return [[x_left, y_left, z_left], [x_right, y_right, z_right]]
 
+    # Return the coordinates of parts based on the coordinate of joints
+    def get_part_coordinates(self, joint_coordinates):
+        joint_x_left = joint_coordinates[0][0]
+        joint_y_left = joint_coordinates[0][1]
+        joint_z_left = joint_coordinates[0][2]
+        joint_x_right = joint_coordinates[1][0]
+        joint_y_right = joint_coordinates[1][1]
+        joint_z_right = joint_coordinates[1][2]
+        # [hip_body_connector, hip_joint_cover, top_hip_joint, lateral_hip_joint, femur, shin, ankle]
+        # [x1, x2, x3, x4, x5]
+        x_left = np.array(
+            [
+                joint_x_left[0] + 30,
+                joint_x_left[0],
+                joint_x_left[1],
+                joint_x_left[2],
+                (joint_x_left[2] + joint_x_left[3]) / 2,
+                (joint_x_left[3] + joint_x_left[4]) / 2,
+                joint_x_left[4],
+            ]
+        )
+        x_right = np.array(
+            [
+                joint_x_right[0] - 30,
+                joint_x_right[0],
+                joint_x_right[1],
+                joint_x_right[2],
+                (joint_x_right[2] + joint_x_right[3]) / 2,
+                (joint_x_right[3] + joint_x_right[4]) / 2,
+                joint_x_right[4],
+            ]
+        )
+        y_left = np.array(
+            [
+                joint_y_left[0],
+                joint_y_left[0],
+                joint_y_left[1],
+                joint_y_left[2],
+                (joint_y_left[2] + joint_y_left[3]) / 2,
+                (joint_y_left[3] + joint_y_left[4]) / 2,
+                joint_y_left[4],
+            ]
+        )
+        y_right = np.array(
+            [
+                joint_y_right[0],
+                joint_y_right[0],
+                joint_y_right[1],
+                joint_y_right[2],
+                (joint_y_right[2] + joint_y_right[3]) / 2,
+                (joint_y_right[3] + joint_y_right[4]) / 2,
+                joint_y_right[4],
+            ]
+        )
+        z_left = np.array(
+            [
+                joint_z_left[0],
+                joint_z_left[0],
+                joint_z_left[1],
+                joint_z_left[2],
+                (joint_z_left[2] + joint_z_left[3]) / 2,
+                (joint_z_left[2] + joint_z_left[3]) / 2,
+                joint_z_left[4],
+            ]
+        )
+        z_right = np.array(
+            [
+                joint_z_right[0],
+                joint_z_right[0],
+                joint_z_right[1],
+                joint_z_right[2],
+                (joint_z_right[2] + joint_z_right[3]) / 2,
+                (joint_z_right[2] + joint_z_right[3]) / 2,
+                joint_z_right[4],
+            ]
+        )
+        return [[x_left, y_left, z_left], [x_right, y_right, z_right]]
+
+    # Calculate COM
+    def get_com(self):
+        joints_coordinates = self.get_coordinates()
+        joints_coordinates_left, joints_coordinates_right = joints_coordinates
+        part_coordinates = self.get_part_coordinates(joints_coordinates)
+        part_coordinates_left, part_coordinates_right = part_coordinates
+        com = np.zeros((2, 3))
+        for i in range(3):
+            com[0][i] = (
+                (
+                    np.dot(self.motor_mass, joints_coordinates_left[i])
+                    + np.dot(self.part_mass, part_coordinates_left[i])
+                )
+                / self.total_mass
+                / 2
+            )
+            com[1][i] = (
+                (
+                    np.dot(self.motor_mass, joints_coordinates_right[i])
+                    + np.dot(self.part_mass, part_coordinates_right[i])
+                )
+                / self.total_mass
+                / 2
+            )
+        return com
+
     # Disable torque and close port
     def terminate(self):
         for i in self.dynaindex:
@@ -329,21 +455,25 @@ class bob:
     # Sync ankle
     def sync_ankle(self):
         angle_left = self.normalize_angle(
-            -self.roll + self.joint_angles_left[2]-self.joint_angles_left[3]
+            -self.roll + self.joint_angles_left[2] - self.joint_angles_left[3]
         )
         angle_right = self.normalize_angle(
-            self.roll-self.joint_angles_right[2]+self.joint_angles_right[3]
+            self.roll - self.joint_angles_right[2] + self.joint_angles_right[3]
         )
-        if angle_right > 48 and angle_right <=180:
+        if angle_right > 48 and angle_right <= 180:
             angle_right = 47
-        elif angle_right <312 and angle_right >= 180:
+        elif angle_right < 312 and angle_right >= 180:
             angle_right = 311
-        if angle_left > 47 and angle_left <=180:
+        if angle_left > 47 and angle_left <= 180:
             angle_left = 47
-        elif angle_left <312 and angle_left >= 180:
+        elif angle_left < 312 and angle_left >= 180:
             angle_left = 311
-        self.set_dynamixel_position(self.angle_to_position(angle_right+self.initial_angle_right[4]),25)
-        self.set_dynamixel_position(self.angle_to_position(angle_left+self.initial_angle_left[4]),15)
+        self.set_dynamixel_position(
+            self.angle_to_position(angle_right + self.initial_angle_right[4]), 25
+        )
+        self.set_dynamixel_position(
+            self.angle_to_position(angle_left + self.initial_angle_left[4]), 15
+        )
 
 
 """bob1 = bob()
