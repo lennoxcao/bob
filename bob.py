@@ -476,6 +476,7 @@ class bob:
         )
 
 
+bob1 = bob()
 """bob1 = bob()
 start = time.time()
 #bob1.disable_torque_except_ankle()

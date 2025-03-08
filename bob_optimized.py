@@ -238,14 +238,19 @@ class Bob:
         except Exception as e:
             print("IMU read error:", e)
             return
-        accel_roll = math.degrees(math.atan2(ay, az))
-        accel_pitch = math.degrees(math.atan2(-ax, math.sqrt(ay**2 + az**2)))
-        roll_rate = gx
-        pitch_rate = gy
-        self.roll = alpha * (self.roll + roll_rate * t) + (1 - alpha) * accel_roll * t
-        self.pitch = (
-            alpha * (self.pitch + pitch_rate * t) + (1 - alpha) * accel_pitch * t
-        )
+        #might need to add additional constraints to the magnitude of a
+        if 0.99<az and az<1.01: 
+            self.roll = 0
+            self.pitch = 0
+        else:
+            accel_roll = math.degrees(math.atan2(ay, az))
+            accel_pitch = math.degrees(math.atan2(-ax, math.sqrt(ay**2 + az**2)))
+            roll_rate = gx
+            pitch_rate = gy
+            self.roll = alpha * (self.roll + roll_rate * t) + (1 - alpha) * (self.roll+accel_roll * t)
+            self.pitch = (
+                alpha * (self.pitch + pitch_rate * t) + (1 - alpha) * (self.pitch+accel_pitch * t)
+            )
 
         new_base = np.array(
             [np.radians(self.pitch), np.radians(self.roll), 0, 0, 0, 2], dtype=float
@@ -311,8 +316,12 @@ class Bob:
         """
         self.bulk_write.clearParam()
         for motor_id, pos in zip(motor_ids, positions):
+            param_goal_position = [DXL_LOBYTE(DXL_LOWORD(pos)),
+                                   DXL_HIBYTE(DXL_LOWORD(pos)),
+                                   DXL_LOBYTE(DXL_HIWORD(pos)),
+                                   DXL_HIBYTE(DXL_HIWORD(pos))]
             self.bulk_write.addParam(
-                int(motor_id), self.ADDR_GOAL_POSITION, 4, int(pos)
+                motor_id, self.ADDR_GOAL_POSITION, 4, param_goal_position
             )
         self.bulk_write.txPacket()
         self.bulk_write.clearParam()
@@ -594,7 +603,7 @@ class Bob:
         cmd_angles_left = (
             self.joint_angles[1, 0:4] + dtheta_deg[4:8] + self.initial_angles[1, 0:4]
         )
-        cmd_angles = np.concatenate([cmd_angles_right, cmd_angles_left])
+        cmd_angles = np.concatenate([cmd_angles_right, cmd_angles_left])*0.1
         # Convert commanded angles (in degrees) to motor units.
         command_positions = self.angle_to_position(cmd_angles)
 
@@ -613,14 +622,28 @@ class Bob:
 if __name__ == "__main__":
     try:
         robot = Bob()
+        robot.disable_torque()
+        com = np.empty((0,3))
+        joints = np.empty((0,3))
         while True:
             robot.update_reference_angle(robot.dt)
+            com = np.vstack((com,robot.get_com()))
+            coordinates = robot.get_coordinates()
+            coordinates = np.vstack((np.transpose(coordinates[0]),np.transpose(coordinates[1])))
+            joints = np.vstack((joints,coordinates))
+            #print(robot.get_com())
             # You may call other controllers (e.g., sync_ankle) as needed.
-            robot.balance_controller_with_jacobian()
-            robot.sync_ankle()
+            #robot.balance_controller_with_jacobian()
+            #robot.sync_ankle()
             # For demonstration, sleep for dt seconds.
             time.sleep(robot.dt)
     except KeyboardInterrupt:
+        with open("com.pkl", "wb") as file:
+            pickle.dump(com, file)
+        with open("coordinates.pkl", "wb") as file:
+            pickle.dump(coordinates, file)
+        print(com)
+        print(joints)
         print("Terminating...")
     finally:
         robot.terminate()
