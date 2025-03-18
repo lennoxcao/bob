@@ -643,7 +643,7 @@ if __name__ == "__main__":
         with open("com.pkl", "wb") as file:
             pickle.dump(com, file)
         with open("coordinates.pkl", "wb") as file:
-            pickle.dump(coordinates, file)
+            pickle.dump(joints, file)
         print(com)
         print(joints)
         print("Terminating...")

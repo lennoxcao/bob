@@ -7,8 +7,8 @@ with open("com.pkl", "rb") as file:
     center_of_mass_data = pickle.load(file)
 with open("coordinates.pkl", "rb") as file:
     joints_data = pickle.load(file)
-
-num_frames = len(center_of_mass_data)
+print(center_of_mass_data)
+"""num_frames = len(center_of_mass_data)
 # Number of joints per frame
 NUM_JOINTS = 12
 FRAME_INTERVAL = 10  # Milliseconds (10ms = 0.01s)
@@ -94,4 +94,4 @@ btn_prev.on_clicked(prev_frame)
 update_plot()
 
 # Display plot
-# plt.show()
+plt.show()"""
