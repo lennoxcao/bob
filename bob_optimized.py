@@ -39,7 +39,7 @@ class Bob:
         # initial_angles: 2×5 array of motor "home" offsets (in degrees).
         # Row 0: Right leg; Row 1: Left leg.
         self.initial_angles = np.array(
-            [[180, 180, 180, 0, 90], [180, 180, 180, 180, 270]], dtype=float
+            [[180, 180, 180, 0, 90], [180, 180, 180, 270, 270]], dtype=float
         )
 
         # joint_angles: 2×5 array holding the current measured motor angles (in degrees).
@@ -370,6 +370,7 @@ class Bob:
           - Index 1: Left leg joints.
         """
         self.update_motor_angles()
+        self.update_reference_angle(robot.dt)
         coords = [np.zeros((3, 6), dtype=float) for _ in range(2)]
         for side in range(2):
             side_str = "right" if side == 0 else "left"
@@ -562,7 +563,7 @@ class Bob:
                 f"No Jacobian available for roll={roll_key}°, pitch={pitch_key}°"
             )
 
-    def balance_controller_with_jacobian(self):
+    def balance_controller_with_jacobian(self,coords,alpha):
         """
         Balancing controller using the precomputed Jacobian lookup.
 
@@ -574,9 +575,6 @@ class Bob:
         in a vectorized manner and sent via a single bulk-write packet.
         """
         # (a) Get forward kinematics: ankle (foot) positions.
-        coords = (
-            self.get_coordinates()
-        )  # returns [right_coords, left_coords] (each 3×6)
         foot_right = coords[0][:, 5]
         foot_left = coords[1][:, 5]
         foot_center = (foot_right + foot_left) / 2.0
@@ -603,7 +601,7 @@ class Bob:
         cmd_angles_left = (
             self.joint_angles[1, 0:4] + dtheta_deg[4:8] + self.initial_angles[1, 0:4]
         )
-        cmd_angles = np.concatenate([cmd_angles_right, cmd_angles_left])*0.1
+        cmd_angles = np.concatenate([cmd_angles_right, cmd_angles_left])*alpha
         # Convert commanded angles (in degrees) to motor units.
         command_positions = self.angle_to_position(cmd_angles)
 
@@ -612,16 +610,31 @@ class Bob:
         motor_ids_left = self.motor_ids[1, 0:4]
         motor_ids_non_ankle = np.concatenate([motor_ids_right, motor_ids_left])
 
+        print(dtheta_deg)
         # (h) Use the bulk write abstraction to send all goal positions.
-        self.bulk_write_positions(motor_ids_non_ankle, command_positions)
+        #self.bulk_write_positions(motor_ids_non_ankle, command_positions)
 
 
 
+try:
+    robot = Bob()
+    iteration = 0
+    robot.disable_torque()
+    while True:
+        robot.get_coordinates()
+        if iteration%100 ==0:
+            print(robot.joint_angles)
+        time.sleep(robot.dt)
+        iteration+=1
+except KeyboardInterrupt:
+    print("Terminating...")
+finally:
+    robot.terminate()
 
 # -------------------------
-# Example usage.
+# com animation
 # -------------------------
-if __name__ == "__main__":
+"""if __name__ == "__main__":
     try:
         robot = Bob()
         robot.disable_torque()
@@ -648,4 +661,4 @@ if __name__ == "__main__":
         print(joints)
         print("Terminating...")
     finally:
-        robot.terminate()
+        robot.terminate()"""
