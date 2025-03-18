@@ -616,6 +616,8 @@ class Bob:
         self.bulk_write_positions(motor_ids_non_ankle, command_positions)
 
 
+
+
 # -------------------------
 # Example usage.
 # -------------------------
