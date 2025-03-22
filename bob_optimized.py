@@ -38,9 +38,7 @@ class Bob:
 
         # initial_angles: 2×5 array of motor "home" offsets (in degrees).
         # Row 0: Right leg; Row 1: Left leg.
-        self.initial_angles = np.array(
-            [[180, 180, 180, 0, 90], [180, 180, 180, 270, 270]], dtype=float
-        )
+        self.initial_angles = np.array([[0, 0, 0, 0, 0], [0, 0, 0, 0, 0]], dtype=float)
 
         # joint_angles: 2×5 array holding the current measured motor angles (in degrees).
         self.joint_angles = np.zeros((2, 5), dtype=float)
@@ -238,8 +236,8 @@ class Bob:
         except Exception as e:
             print("IMU read error:", e)
             return
-        #might need to add additional constraints to the magnitude of a
-        if 0.99<az and az<1.01: 
+        # might need to add additional constraints to the magnitude of a
+        if 0.99 < az and az < 1.01:
             self.roll = 0
             self.pitch = 0
         else:
@@ -247,9 +245,11 @@ class Bob:
             accel_pitch = math.degrees(math.atan2(-ax, math.sqrt(ay**2 + az**2)))
             roll_rate = gx
             pitch_rate = gy
-            self.roll = alpha * (self.roll + roll_rate * t) + (1 - alpha) * (self.roll+accel_roll * t)
-            self.pitch = (
-                alpha * (self.pitch + pitch_rate * t) + (1 - alpha) * (self.pitch+accel_pitch * t)
+            self.roll = alpha * (self.roll + roll_rate * t) + (1 - alpha) * (
+                self.roll + accel_roll * t
+            )
+            self.pitch = alpha * (self.pitch + pitch_rate * t) + (1 - alpha) * (
+                self.pitch + accel_pitch * t
             )
 
         new_base = np.array(
@@ -306,6 +306,17 @@ class Bob:
         positions = get_data(motor_ids)
         return positions
 
+    def set_init_pos(self):
+        self.initial_angles = np.array([[0, 0, 0, 0, 0], [0, 0, 0, 0, 0]])
+        init_pos = np.array((2, 5))
+        positions = self.bulk_read_positions(self.motor_ids)
+        angles = np.round(self.position_to_angle(positions) / 90) * 90
+        init_pos[0] = angles[0, 5]
+        init_pos[1] = angles[5, 9]
+        print(init_pos)
+        with open("init_angles.pkl", "wb") as file:
+            pickle.dump(init_pos, file)
+
     def bulk_write_positions(self, motor_ids, positions):
         """
         Bulk-write goal positions to the specified motor IDs.
@@ -316,10 +327,12 @@ class Bob:
         """
         self.bulk_write.clearParam()
         for motor_id, pos in zip(motor_ids, positions):
-            param_goal_position = [DXL_LOBYTE(DXL_LOWORD(pos)),
-                                   DXL_HIBYTE(DXL_LOWORD(pos)),
-                                   DXL_LOBYTE(DXL_HIWORD(pos)),
-                                   DXL_HIBYTE(DXL_HIWORD(pos))]
+            param_goal_position = [
+                DXL_LOBYTE(DXL_LOWORD(pos)),
+                DXL_HIBYTE(DXL_LOWORD(pos)),
+                DXL_LOBYTE(DXL_HIWORD(pos)),
+                DXL_HIBYTE(DXL_HIWORD(pos)),
+            ]
             self.bulk_write.addParam(
                 motor_id, self.ADDR_GOAL_POSITION, 4, param_goal_position
             )
@@ -563,7 +576,7 @@ class Bob:
                 f"No Jacobian available for roll={roll_key}°, pitch={pitch_key}°"
             )
 
-    def balance_controller_with_jacobian(self,coords,alpha):
+    def balance_controller_with_jacobian(self, coords, alpha):
         """
         Balancing controller using the precomputed Jacobian lookup.
 
@@ -601,7 +614,7 @@ class Bob:
         cmd_angles_left = (
             self.joint_angles[1, 0:4] + dtheta_deg[4:8] + self.initial_angles[1, 0:4]
         )
-        cmd_angles = np.concatenate([cmd_angles_right, cmd_angles_left])*alpha
+        cmd_angles = np.concatenate([cmd_angles_right, cmd_angles_left]) * alpha
         # Convert commanded angles (in degrees) to motor units.
         command_positions = self.angle_to_position(cmd_angles)
 
@@ -612,24 +625,30 @@ class Bob:
 
         print(dtheta_deg)
         # (h) Use the bulk write abstraction to send all goal positions.
-        #self.bulk_write_positions(motor_ids_non_ankle, command_positions)
+        # self.bulk_write_positions(motor_ids_non_ankle, command_positions)
 
 
+robot = Bob()
+robot.set_init_pos()
 
-try:
+
+# -------------------------
+# test motor position
+# -------------------------
+"""try:
     robot = Bob()
     iteration = 0
     robot.disable_torque()
     while True:
         robot.get_coordinates()
-        if iteration%100 ==0:
+        if iteration % 100 == 0:
             print(robot.joint_angles)
         time.sleep(robot.dt)
-        iteration+=1
+        iteration += 1
 except KeyboardInterrupt:
     print("Terminating...")
 finally:
-    robot.terminate()
+    robot.terminate()"""
 
 # -------------------------
 # com animation
