@@ -292,9 +292,7 @@ class Bob:
             new_angles[0, :] - self.initial_angles[0, :]
         )
         # Left leg: subtract initial offsets then invert sign.
-        angles_left = -self.normalize_angle(
-            new_angles[1, :] - self.initial_angles[1, :]
-        )
+        angles_left = self.normalize_angle(new_angles[1, :] - self.initial_angles[1, :])
         delta_right = angles_right - self.joint_angles[0, :]
         delta_left = angles_left - self.joint_angles[1, :]
         self.joint_angles[0, :] = angles_right
@@ -620,18 +618,18 @@ if __name__ == "__main__":
     try:
         robot = Bob()
         robot.disable_torque()
-        com = np.empty((0,3))
-        joints = np.empty((0,3))
+        com = np.empty((0, 3))
+        joints = np.empty((0, 3))
         while True:
             robot.update_reference_angle(robot.dt)
-            com = np.vstack((com,robot.get_com()[1]))
+            com = np.vstack((com, robot.get_com()[1]))
             coordinates = robot.get_coordinates()
             coordinates = np.vstack((np.transpose(coordinates[1])))
-            joints = np.vstack((joints,coordinates))
-            #print(robot.get_com())
+            joints = np.vstack((joints, coordinates))
+            # print(robot.get_com())
             # You may call other controllers (e.g., sync_ankle) as needed.
-            #robot.balance_controller_with_jacobian()
-            #robot.sync_ankle()
+            # robot.balance_controller_with_jacobian()
+            # robot.sync_ankle()
             # For demonstration, sleep for dt seconds.
             time.sleep(robot.dt)
     except KeyboardInterrupt:

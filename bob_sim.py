@@ -128,9 +128,7 @@ class BobSim:
             new_angles[0, :] - self.initial_angles[0, :]
         )
         # Left leg: subtract initial offsets then invert sign.
-        angles_left = -self.normalize_angle(
-            new_angles[1, :] - self.initial_angles[1, :]
-        )
+        angles_left = self.normalize_angle(new_angles[1, :] - self.initial_angles[1, :])
         delta_right = angles_right - self.joint_angles[0, :]
         delta_left = angles_left - self.joint_angles[1, :]
         self.joint_angles[0, :] = angles_right
