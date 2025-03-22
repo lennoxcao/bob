@@ -19,6 +19,10 @@ class Bob_sim:
 
         self.pitch = 0
 
+        self.part_mass = bp.part_mass
+        self.motor_mass = bp.motor_mass
+        self.total_mass = bp.total_mass
+
         # This dictionary will hold the precomputed Jacobian lookup table.
         self.jacobian_grid = {}
 
@@ -233,14 +237,13 @@ class Bob_sim:
         left_parts = np.vstack([x_left, y_left, z_left])
         return [right_parts, left_parts]
 
-    def get_com(self):
+    def get_com(self,coords):
         """
         Compute the center of mass for each leg.
         Returns a 2×3 array:
           - Row 0: COM for the right leg.
           - Row 1: COM for the left leg.
         """
-        coords = self.get_coordinates()  # [right_coords, left_coords]
         parts = self.get_part_coordinates(coords)
         com_right = (
             coords[0][:, 1:6] @ self.motor_mass + parts[0] @ self.part_mass
@@ -255,15 +258,15 @@ class Bob_sim:
     def compute_jacobian_realtime(self, joint_angles, roll, pitch, alpha):
         coords = self.get_coordinates(roll, pitch, joint_angles)
         part_coords = self.get_part_coordinates(coords)
-        com = self.get_com()
-        com = ((com[0] + com[1]) / 2)[0:2]
+        com = self.get_com(coords)
+        total_com = ((com[0] + com[1]) / 2)[0:2]
 
         foot_right = part_coords[0][:, 5]
         foot_left = part_coords[1][:, 5]
         target_position = ((foot_right + foot_left) / 2.0)[0:2]
         # Midpoint of the two foot positions
 
-        step_size = np.linalg.norm(com - target_position)
+        step_size = np.linalg.norm(total_com - target_position)
 
         adjustments = np.zeros_like(joint_angles)
 
@@ -273,12 +276,12 @@ class Bob_sim:
                 delta = step_size * alpha
                 joint_angles[leg, joint] += delta
                 coords = self.get_coordinates(roll, pitch, joint_angles)
-                new_com = self.get_com()
+                new_com = self.get_com(coords)
 
                 new_distance = np.linalg.norm(
                     (new_com[0][:2] + new_com[1][:2]) / 2 - target_position
                 )
-                original_distance = np.linalg.norm(target_position - com[leg][:2])
+                original_distance = step_size
 
                 if new_distance < original_distance:
                     # Move in the positive direction
