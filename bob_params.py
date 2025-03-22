@@ -5,7 +5,7 @@ import pickle
 class Bob_params:
     def __init__(self):
         # Time step (s) for updates
-        self.dt = 0.01
+        self.dt = 0.1
 
         # motor_ids: 2×5 array.
         # Row 0 (index 0): Right leg motors (IDs 21, 22, 23, 24, 25)

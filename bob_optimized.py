@@ -578,7 +578,7 @@ class Bob:
         error = (overall_com - foot_center)[0:2]  # 2-element vector
 
 
-try:
+"""try:
     robot = Bob()
     iterations = 0
     while True:
@@ -592,7 +592,7 @@ try:
 except KeyboardInterrupt:
     print("Terminating...")
 finally:
-    robot.terminate()
+    robot.terminate()"""
 
 # -------------------------
 # test motor position
@@ -616,7 +616,7 @@ finally:
 # -------------------------
 # com animation
 # -------------------------
-"""if __name__ == "__main__":
+if __name__ == "__main__":
     try:
         robot = Bob()
         robot.disable_torque()
@@ -643,4 +643,4 @@ finally:
         print(joints)
         print("Terminating...")
     finally:
-        robot.terminate()"""
+        robot.terminate()
