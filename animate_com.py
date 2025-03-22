@@ -9,11 +9,9 @@ with open("coordinates.pkl", "rb") as file:
     joints_data = pickle.load(file)
 num_frames = len(center_of_mass_data)
 # Number of joints per frame
-NUM_JOINTS = 12
+NUM_JOINTS = 6
 FRAME_INTERVAL = 10  # Milliseconds (10ms = 0.01s)
 
-# Number of joints per frame
-NUM_JOINTS = 12
 
 # Create figure and axis
 fig = plt.figure()
@@ -22,7 +20,7 @@ ax = fig.add_subplot(111, projection="3d")
 # Set plot limits (adjust based on actual data range)
 ax.set_xlim(-100, 100)
 ax.set_ylim(-100, 100)
-ax.set_zlim(-100, 100)
+ax.set_zlim(-200, 50)
 
 # Plot objects for updating
 (joints_plot,) = ax.plot([], [], [], "o", color="blue", markersize=8, label="Joints")
@@ -47,8 +45,8 @@ def update_plot():
     joints = joints_data[frame * NUM_JOINTS : (frame + 1) * NUM_JOINTS]
 
     # Extract two centers of mass for the current frame
-    com1 = center_of_mass_data[frame * 2]
-    com2 = center_of_mass_data[frame * 2 + 1]
+    com1 = center_of_mass_data[frame]
+    """com2 = center_of_mass_data[frame * 2 + 1]"""
 
     # Update joint positions
     joints_plot.set_data(joints[:, 0], joints[:, 1])
@@ -57,9 +55,6 @@ def update_plot():
     # Update center of mass positions
     com1_plot.set_data(com1[0], com1[1])
     com1_plot.set_3d_properties(com1[2])
-
-    com2_plot.set_data(com2[0], com2[1])
-    com2_plot.set_3d_properties(com2[2])
 
     # Update plot title with current frame
     ax.set_title(f"Frame {frame + 1}/{num_frames}")
