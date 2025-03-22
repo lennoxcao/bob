@@ -4,6 +4,7 @@ import math
 import pickle
 import time
 import bob_params
+import bob_sim
 
 imu = True
 from icm20948 import ICM20948  # IMU package
@@ -26,6 +27,7 @@ class Bob:
 
     def __init__(self):
         bp = bob_params.Bob_params()
+        self.bs = bob_sim.Bob_sim()
         self.dt = bp.dt
         self.motor_ids = bp.motor_ids
 
@@ -553,7 +555,7 @@ class Bob:
         # (h) Use the bulk write abstraction to send all goal positions.
         # self.bulk_write_positions(motor_ids_non_ankle, command_positions)
 
-    def balance_controller_realtime(self, coords, alpha):
+    def balance_controller_realtime(self, alpha):
         """
         Balancing controller using the real-time Jacobian computation.
 
@@ -565,32 +567,25 @@ class Bob:
         joints (assumed to be joints 0–3 for each leg). The new goal positions are computed
         in a vectorized manner and sent via a single bulk-write packet.
         """
-
-        foot_right = coords[0][:, 5]
-        foot_left = coords[1][:, 5]
-        foot_center = (foot_right + foot_left) / 2.0
-
-        com_arr = self.get_com()  # 2×3 array (row 0: right, row 1: left)
-        overall_com = (com_arr[0, :] + com_arr[1, :]) / 2.0
-
-        error = (overall_com - foot_center)[0:2]  # 2-element vector
+        dtheta = self.bs.compute_jacobian_realtime(
+            self.joint_angles, self.roll, self.pitch, alpha
+        )
+        print(dtheta)
 
 
-"""try:
+try:
     robot = Bob()
     iterations = 0
     while True:
         coords = robot.get_coordinates()
         if iterations % 10 == 0:
-            robot.balance_controller_with_jacobian(coords, 1)
-            print("pitch:" + str(robot.pitch))
-            print("roll:" + str(robot.roll))
+            robot.balance_controller_realtime(1)
         time.sleep(robot.dt)
         iterations += 1
 except KeyboardInterrupt:
     print("Terminating...")
 finally:
-    robot.terminate()"""
+    robot.terminate()
 
 # -------------------------
 # test motor position
@@ -611,7 +606,7 @@ except KeyboardInterrupt:
 finally:
     robot.terminate()"""
 
-# -------------------------
+"""# -------------------------
 # com animation
 # -------------------------
 if __name__ == "__main__":
@@ -641,4 +636,4 @@ if __name__ == "__main__":
         print(joints)
         print("Terminating...")
     finally:
-        robot.terminate()
+        robot.terminate()"""

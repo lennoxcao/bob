@@ -4,7 +4,7 @@ import pickle
 import bob_params
 
 
-class BobSim:
+class Bob_sim:
     def __init__(self):
         bp = bob_params.Bob_params()
         self.dt = bp.dt
@@ -252,21 +252,27 @@ class BobSim:
 
     # --- Jacobian Grid Computation ---
 
-    def compute_jacobian_realtime(self, joint_angles, roll, pitch):
-        joint_angles = self.joint_angles.copy()
+    def compute_jacobian_realtime(self, joint_angles, roll, pitch, alpha):
+        coords = self.get_coordinates(roll, pitch, joint_angles)
+        part_coords = self.get_part_coordinates(coords)
         com = self.get_com()
-        target_position = (
-            com[0][:2] + com[1][:2]
-        ) / 2  # Midpoint of the two foot positions
+        com = ((com[0] + com[1]) / 2)[0:2]
+
+        foot_right = part_coords[0][:, 5]
+        foot_left = part_coords[1][:, 5]
+        target_position = ((foot_right + foot_left) / 2.0)[0:2]
+        # Midpoint of the two foot positions
+
+        step_size = np.linalg.norm(com - target_position)
 
         adjustments = np.zeros_like(joint_angles)
 
         for leg in range(2):  # 0 = right, 1 = left
             for joint in range(5):
                 # Perturb the current joint slightly to compute the gradient
-                delta = step_size
+                delta = step_size * alpha
                 joint_angles[leg, joint] += delta
-                self.update_motor_angles(joint_angles)
+                coords = self.get_coordinates(roll, pitch, joint_angles)
                 new_com = self.get_com()
 
                 new_distance = np.linalg.norm(
@@ -277,23 +283,10 @@ class BobSim:
                 if new_distance < original_distance:
                     # Move in the positive direction
                     adjustments[leg, joint] = delta
+                    step_size = new_distance
                 else:
-                    # Try the negative direction
-                    joint_angles[leg, joint] -= 2 * delta
-                    self.update_motor_angles(joint_angles)
-                    new_com = self.get_com()
-                    new_distance = np.linalg.norm(
-                        (new_com[0][:2] + new_com[1][:2]) / 2 - target_position
-                    )
-
-                    if new_distance < original_distance:
-                        adjustments[leg, joint] = -delta
-                    else:
-                        adjustments[leg, joint] = 0
-
-                # Reset joint to original position after testing
-                joint_angles[leg, joint] += delta
-                self.update_motor_angles(joint_angles)
+                    adjustments[leg, joint] = -delta
+                    step_size = original_distance - (new_distance - original_distance)
 
         return adjustments
 
