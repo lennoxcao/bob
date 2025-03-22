@@ -14,13 +14,9 @@ class BobSim:
         )
 
         # initial_angles: 2x5 array (in degrees)
-        self.initial_angles = np.array(
-            [
-                [180, 180, 180, 0, 90],  # Right leg offsets
-                [180, 180, 180, 180, 270],  # Left leg offsets
-            ],
-            dtype=float,
-        )
+        with open('init_angles.pkl','rb') as file:
+            init_angles = pickle.load(file)
+        self.initial_angles = init_angles
 
         # joint_angles: current measured angles (2x5, in degrees)
         self.joint_angles = np.zeros((2, 5), dtype=float)

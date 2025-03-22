@@ -38,7 +38,9 @@ class Bob:
 
         # initial_angles: 2×5 array of motor "home" offsets (in degrees).
         # Row 0: Right leg; Row 1: Left leg.
-        self.initial_angles = np.array([[0, 0, 0, 0, 0], [0, 0, 0, 0, 0]], dtype=float)
+        with open('init_angles.pkl','rb') as file:
+            init_angles = pickle.load(file)
+        self.initial_angles = init_angles
 
         # joint_angles: 2×5 array holding the current measured motor angles (in degrees).
         self.joint_angles = np.zeros((2, 5), dtype=float)
@@ -260,6 +262,7 @@ class Bob:
 
     def normalize_angle(self, angle):
         """Normalize an angle (degrees) to [0, 360). Supports scalars or arrays."""
+        angle = np.mod(angle, 360)
         return np.mod(angle, 360)
 
     def angle_to_position(self, angle):
@@ -280,6 +283,8 @@ class Bob:
 
     # --------------------------------------------------
     # Bulk-read and Bulk-write Methods
+    # note that when updating motor positions and storing in self.joint_angles the initial position is taken into consideration
+    # however, when writing motor positions, the initial angles are not taken into consideration
     # --------------------------------------------------
     def bulk_read_positions(self, motor_ids=None):
         """
@@ -308,14 +313,10 @@ class Bob:
 
     def set_init_pos(self):
         self.initial_angles = np.array([[0, 0, 0, 0, 0], [0, 0, 0, 0, 0]])
-        init_pos = np.array((2, 5))
         positions = self.bulk_read_positions(self.motor_ids)
         angles = np.round(self.position_to_angle(positions) / 90) * 90
-        init_pos[0] = angles[0, 5]
-        init_pos[1] = angles[5, 9]
-        print(init_pos)
         with open("init_angles.pkl", "wb") as file:
-            pickle.dump(init_pos, file)
+            pickle.dump(angles, file)
 
     def bulk_write_positions(self, motor_ids, positions):
         """
@@ -377,6 +378,7 @@ class Bob:
 
     def get_coordinates(self):
         """
+        Update motor angles and reference angles.
         Compute (x, y, z) coordinates for each joint using EDH transforms.
         Returns a list of two 3×6 arrays:
           - Index 0: Right leg joints.
@@ -609,11 +611,13 @@ class Bob:
         # (f) Compute new commanded angles for the eight non–ankle joints.
         # Right leg non–ankle joints: indices 0–3; Left leg non–ankle joints: indices 0–3.
         cmd_angles_right = (
-            self.joint_angles[0, 0:4] + dtheta_deg[0:4] + self.initial_angles[0, 0:4]
+            self.joint_angles[0, 0:4] + dtheta_deg[0:4] 
         )
+        #+ self.initial_angles[0, 0:4]
         cmd_angles_left = (
-            self.joint_angles[1, 0:4] + dtheta_deg[4:8] + self.initial_angles[1, 0:4]
+            self.joint_angles[1, 0:4] + dtheta_deg[4:8] 
         )
+        #+ self.initial_angles[1, 0:4]
         cmd_angles = np.concatenate([cmd_angles_right, cmd_angles_left]) * alpha
         # Convert commanded angles (in degrees) to motor units.
         command_positions = self.angle_to_position(cmd_angles)
@@ -623,14 +627,27 @@ class Bob:
         motor_ids_left = self.motor_ids[1, 0:4]
         motor_ids_non_ankle = np.concatenate([motor_ids_right, motor_ids_left])
 
-        print(dtheta_deg)
+        print('error:'+str(error))
+        print('theta:'+str(dtheta))
         # (h) Use the bulk write abstraction to send all goal positions.
         # self.bulk_write_positions(motor_ids_non_ankle, command_positions)
 
 
-robot = Bob()
-robot.set_init_pos()
-
+try:
+    robot = Bob()
+    iterations = 0
+    while True:
+        coords = robot.get_coordinates()
+        if iterations % 10 ==0:
+            robot.balance_controller_with_jacobian(coords,1)
+            print('pitch:'+str(robot.pitch))
+            print('roll:' + str(robot.roll))
+        time.sleep(robot.dt)
+        iterations += 1
+except KeyboardInterrupt:
+    print("Terminating...")
+finally:
+    robot.terminate()
 
 # -------------------------
 # test motor position
@@ -641,8 +658,9 @@ robot.set_init_pos()
     robot.disable_torque()
     while True:
         robot.get_coordinates()
-        if iteration % 100 == 0:
-            print(robot.joint_angles)
+        if iteration % 10 == 0:
+            print('right'+str(robot.joint_angles[0,1]))
+            print('left'+str(robot.joint_angles[1,1]))
         time.sleep(robot.dt)
         iteration += 1
 except KeyboardInterrupt:
