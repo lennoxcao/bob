@@ -3,6 +3,7 @@ from dynamixel_sdk import *  # Dynamixel SDK (includes GroupBulkRead and GroupBu
 import math
 import pickle
 import time
+import bob_params
 
 imu = True
 from icm20948 import ICM20948  # IMU package
@@ -24,91 +25,20 @@ class Bob:
     TORQUE_DISABLE = 0
 
     def __init__(self):
-        self.dt = 0.01  # Time step (s) for updates
+        bp = bob_params.Bob_params()
+        self.dt = bp.dt
+        self.motor_ids = bp.motor_ids
 
-        # --------------------------------------------------
-        # Unified motor data for both legs.
-        # --------------------------------------------------
-        # motor_ids: 2×5 array.
-        # Row 0 (index 0): Right leg motors (IDs 21, 22, 23, 24, 25)
-        # Row 1 (index 1): Left leg motors  (IDs 11, 12, 13, 14, 15)
-        self.motor_ids = np.array(
-            [[21, 22, 23, 24, 25], [11, 12, 13, 14, 15]], dtype=int
-        )
-
-        # initial_angles: 2×5 array of motor "home" offsets (in degrees).
-        # Row 0: Right leg; Row 1: Left leg.
-        with open('init_angles.pkl','rb') as file:
-            init_angles = pickle.load(file)
-        self.initial_angles = init_angles
+        self.initial_angles = bp.initial_angles
 
         # joint_angles: 2×5 array holding the current measured motor angles (in degrees).
         self.joint_angles = np.zeros((2, 5), dtype=float)
 
-        # --------------------------------------------------
-        # Unified EDH joint parameters.
-        # joints_para is a 3-D array of shape (2, 6, 6):
-        #   For each leg (first dimension):
-        #     Row 0: Joint 0 (base) parameters [r, alpha, theta, b, a, d]
-        #     Rows 1–5: Joints 1–5.
-        # Convention: Row 0 → right leg, Row 1 → left leg.
-        # (The theta value is taken from self.joint_angles.)
-        self.joints_para = np.array(
-            [
-                [  # Right leg joint parameters.
-                    [0, 0, 0, 0, 0, 2],  # Joint 0 (base)
-                    [np.pi, 0, self.joint_angles[0, 0], 0, -55.3, 0],  # Joint 1
-                    [
-                        np.pi / 2,
-                        -np.pi / 2,
-                        self.joint_angles[0, 1],
-                        -35.175,
-                        -59.25,
-                        0,
-                    ],  # Joint 2
-                    [
-                        np.pi / 2,
-                        np.pi / 2,
-                        np.pi / 2 + self.joint_angles[0, 2],
-                        0,
-                        -33.125,
-                        0,
-                    ],  # Joint 3
-                    [np.pi, 0, self.joint_angles[0, 3], 0, 108.5, 0],  # Joint 4
-                    [0, np.pi, self.joint_angles[0, 4], 0, 97, 0],  # Joint 5 (ankle)
-                ],
-                [  # Left leg joint parameters.
-                    [0, 0, 0, 0, 0, 2],  # Joint 0 (base)
-                    [0, np.pi, self.joint_angles[1, 0], 0, -55.3, 0],  # Joint 1
-                    [
-                        np.pi / 2,
-                        np.pi / 2,
-                        self.joint_angles[1, 1],
-                        35.175,
-                        -59.25,
-                        0,
-                    ],  # Joint 2
-                    [
-                        np.pi / 2,
-                        -np.pi / 2,
-                        -np.pi / 2 + self.joint_angles[1, 2],
-                        0,
-                        -33.125,
-                        0,
-                    ],  # Joint 3
-                    [np.pi, 0, self.joint_angles[1, 3], 0, 108.5, 0],  # Joint 4
-                    [0, np.pi, self.joint_angles[1, 4], 0, 97, 0],  # Joint 5 (ankle)
-                ],
-            ],
-            dtype=float,
-        )
+        self.joints_para = bp.joints_para
 
-        # --------------------------------------------------
-        # Mass parameters (example values)
-        # --------------------------------------------------
-        self.part_mass = np.array([17.2, 8.8, 22.2, 12.5, 79, 32.8, 11.3], dtype=float)
-        self.motor_mass = np.array([23, 65, 65, 23, 23], dtype=float)
-        self.total_mass = (np.sum(self.part_mass) + np.sum(self.motor_mass)) * 2
+        self.part_mass = bp.part_mass
+        self.motor_mass = bp.motor_mass
+        self.total_mass = bp.total_mass
 
         # --------------------------------------------------
         # Initialize Dynamixel communication.
@@ -152,9 +82,6 @@ class Bob:
         # Load precomputed Jacobian lookup table.
         with open("jacobian_grid.pkl", "rb") as f:
             self.jacobian_grid = pickle.load(f)
-
-        # For use in PD control (if needed)
-        self.prev_error_pitch = 0.0
 
     # --------------------------------------------------
     # Transformation helper methods.
@@ -610,14 +537,10 @@ class Bob:
 
         # (f) Compute new commanded angles for the eight non–ankle joints.
         # Right leg non–ankle joints: indices 0–3; Left leg non–ankle joints: indices 0–3.
-        cmd_angles_right = (
-            self.joint_angles[0, 0:4] + dtheta_deg[0:4] 
-        )
-        #+ self.initial_angles[0, 0:4]
-        cmd_angles_left = (
-            self.joint_angles[1, 0:4] + dtheta_deg[4:8] 
-        )
-        #+ self.initial_angles[1, 0:4]
+        cmd_angles_right = self.joint_angles[0, 0:4] + dtheta_deg[0:4]
+        # + self.initial_angles[0, 0:4]
+        cmd_angles_left = self.joint_angles[1, 0:4] + dtheta_deg[4:8]
+        # + self.initial_angles[1, 0:4]
         cmd_angles = np.concatenate([cmd_angles_right, cmd_angles_left]) * alpha
         # Convert commanded angles (in degrees) to motor units.
         command_positions = self.angle_to_position(cmd_angles)
@@ -627,10 +550,32 @@ class Bob:
         motor_ids_left = self.motor_ids[1, 0:4]
         motor_ids_non_ankle = np.concatenate([motor_ids_right, motor_ids_left])
 
-        print('error:'+str(error))
-        print('theta:'+str(dtheta))
+        print("error:" + str(error))
+        print("theta:" + str(dtheta))
         # (h) Use the bulk write abstraction to send all goal positions.
         # self.bulk_write_positions(motor_ids_non_ankle, command_positions)
+
+    def balance_controller_realtime(self, coords, alpha):
+        """
+        Balancing controller using the real-time Jacobian computation.
+
+        This method computes the COM error (the difference between the overall COM
+        and the support (foot) center), computes the Jacobian matrix in real-time
+
+        using the current base orientation (roll, pitch), and solves for joint corrections
+        (dtheta) via the pseudoinverse. The corrections are applied to the eight non–ankle
+        joints (assumed to be joints 0–3 for each leg). The new goal positions are computed
+        in a vectorized manner and sent via a single bulk-write packet.
+        """
+
+        foot_right = coords[0][:, 5]
+        foot_left = coords[1][:, 5]
+        foot_center = (foot_right + foot_left) / 2.0
+
+        com_arr = self.get_com()  # 2×3 array (row 0: right, row 1: left)
+        overall_com = (com_arr[0, :] + com_arr[1, :]) / 2.0
+
+        error = (overall_com - foot_center)[0:2]  # 2-element vector
 
 
 try:
@@ -638,10 +583,10 @@ try:
     iterations = 0
     while True:
         coords = robot.get_coordinates()
-        if iterations % 10 ==0:
-            robot.balance_controller_with_jacobian(coords,1)
-            print('pitch:'+str(robot.pitch))
-            print('roll:' + str(robot.roll))
+        if iterations % 10 == 0:
+            robot.balance_controller_with_jacobian(coords, 1)
+            print("pitch:" + str(robot.pitch))
+            print("roll:" + str(robot.roll))
         time.sleep(robot.dt)
         iterations += 1
 except KeyboardInterrupt:
