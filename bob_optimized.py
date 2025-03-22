@@ -624,9 +624,9 @@ if __name__ == "__main__":
         joints = np.empty((0,3))
         while True:
             robot.update_reference_angle(robot.dt)
-            com = np.vstack((com,robot.get_com()[0]))
+            com = np.vstack((com,robot.get_com()[1]))
             coordinates = robot.get_coordinates()
-            coordinates = np.vstack((np.transpose(coordinates[0])))
+            coordinates = np.vstack((np.transpose(coordinates[1])))
             joints = np.vstack((joints,coordinates))
             #print(robot.get_com())
             # You may call other controllers (e.g., sync_ankle) as needed.
