@@ -575,13 +575,13 @@ class Bob:
 
 try:
     robot = Bob()
-    iterations = 0
-    while True:
-        coords = robot.get_coordinates()
-        if iterations % 10 == 0:
-            robot.balance_controller_realtime(1)
-        time.sleep(robot.dt)
-        iterations += 1
+    filename = "position_data.pkl"
+    with open(filename, "rb") as f:
+        sequence = pickle.load(f)
+    sequence = robot.angle_to_position(sequence)
+    for i in range(len(sequence)):
+        robot.bulk_write_positions(robot.motor_ids, sequence[i])
+        time.sleep(0.02)
 except KeyboardInterrupt:
     print("Terminating...")
 finally:

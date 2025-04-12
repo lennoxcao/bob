@@ -1,0 +1,27 @@
+import numpy as np
+import pickle
+
+# Replace 'your_file.csv' with the path to your actual CSV file
+filename = "actions.csv"
+
+# Load the CSV file into a NumPy array
+# If the file contains only numbers:
+data = np.loadtxt(filename, delimiter=",")
+
+velocity_data = data
+
+# Time step in seconds
+dt = 0.02
+
+# Initialize position array with same shape
+position_data = np.zeros_like(velocity_data)
+
+# Integrate velocity to position using simple Euler integration
+for i in range(1, len(velocity_data)):
+    position_data[i] = position_data[i - 1] + velocity_data[i - 1] * dt
+
+position_data = position_data * 180 / np.pi
+# Save or view result
+filename = "position_data.pkl"
+with open(filename, "wb") as f:
+    pickle.dump(position_data, f)
