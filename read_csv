@@ -25,3 +25,8 @@ position_data = position_data * 180 / np.pi
 filename = "position_data.pkl"
 with open(filename, "wb") as f:
     pickle.dump(position_data, f)
+
+filename = "data_with_10.csv"
+
+# Save to CSV
+np.savetxt(filename, position_data, delimiter=",", fmt="%.6f")  # Adjust fmt if needed

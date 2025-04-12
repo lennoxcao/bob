@@ -572,15 +572,19 @@ class Bob:
         )
         print(dtheta)
 
+
 try:
     robot = Bob()
     filename = "position_data.pkl"
-    with open(filename, "rb") as f:
+    robot.bulk_write_positions(
+        robot.motor_ids.flatten(), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    )
+    """with open(filename, "rb") as f:
         sequence = pickle.load(f)
     sequence = robot.angle_to_position(sequence)
     for i in range(len(sequence)):
         robot.bulk_write_positions(robot.motor_ids.flatten(), list(sequence[i]))
-        time.sleep(0.02)
+        time.sleep(0.02)"""
 except KeyboardInterrupt:
     print("Terminating...")
 finally:
