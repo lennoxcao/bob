@@ -270,7 +270,50 @@ class Bob_sim:
 
         adjustments = np.zeros_like(joint_angles)
 
-        for joint in range(5):  # 0 = right, 1 = left
+        # Store temporary adjustments and distances before applying them
+        proposed_adjustments = np.zeros_like(joint_angles)
+        proposed_step_sizes = np.full_like(joint_angles, np.inf, dtype=float)
+
+        for joint in [2, 0, 1, 3, 4]:  # 0 = right, 1 = left
+            for leg in range(2):
+                # Copy the joint angles to avoid mutating them
+                temp_angles = joint_angles.copy()
+
+                # Try positive delta
+                delta = step_size * alpha
+                temp_angles[leg, joint] += delta
+                coords = self.get_coordinates(roll, pitch, temp_angles)
+                new_com = self.get_com(coords)
+
+                new_distance = np.linalg.norm(
+                    (new_com[0][:2] + new_com[1][:2]) / 2 - target_position
+                )
+
+                # Compare with baseline distance using current joint_angles
+                coords_original = self.get_coordinates(roll, pitch, joint_angles)
+                com_original = self.get_com(coords_original)
+                original_distance = np.linalg.norm(
+                    (com_original[0][:2] + com_original[1][:2]) / 2 - target_position
+                )
+
+                # Decide direction and record adjustment
+                if new_distance < original_distance:
+                    proposed_adjustments[leg, joint] = delta
+                    proposed_step_sizes[leg, joint] = new_distance
+                else:
+                    proposed_adjustments[leg, joint] = -delta
+                    # Estimate effective step improvement (still need for tuning)
+                    proposed_step_sizes[leg, joint] = original_distance - (
+                        new_distance - original_distance
+                    )
+
+            # After checking both legs for this joint, apply the updates
+            for leg in range(2):
+                joint_angles[leg, joint] += proposed_adjustments[leg, joint]
+                adjustments[leg, joint] = proposed_adjustments[leg, joint]
+                step_size = proposed_step_sizes[leg, joint]
+
+        """for joint in [2,0,1,3,4]:  # 0 = right, 1 = left
             for leg in range(2):
                 # Perturb the current joint slightly to compute the gradient
                 delta = step_size * alpha
@@ -291,7 +334,7 @@ class Bob_sim:
                 else:
                     adjustments[leg, joint] = -delta
                     joint_angles[leg, joint] -= delta
-                    step_size = original_distance - (new_distance - original_distance)
+                    step_size = original_distance - (new_distance - original_distance)"""
 
         return adjustments
 
