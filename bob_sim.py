@@ -237,7 +237,7 @@ class Bob_sim:
         left_parts = np.vstack([x_left, y_left, z_left])
         return [right_parts, left_parts]
 
-    def get_com(self,coords):
+    def get_com(self, coords):
         """
         Compute the center of mass for each leg.
         Returns a 2×3 array:
@@ -270,8 +270,8 @@ class Bob_sim:
 
         adjustments = np.zeros_like(joint_angles)
 
-        for leg in range(2):  # 0 = right, 1 = left
-            for joint in range(5):
+        for joint in range(5):  # 0 = right, 1 = left
+            for leg in range(2):
                 # Perturb the current joint slightly to compute the gradient
                 delta = step_size * alpha
                 joint_angles[leg, joint] += delta
@@ -286,9 +286,11 @@ class Bob_sim:
                 if new_distance < original_distance:
                     # Move in the positive direction
                     adjustments[leg, joint] = delta
+                    joint_angles[leg, joint] += delta
                     step_size = new_distance
                 else:
                     adjustments[leg, joint] = -delta
+                    joint_angles[leg, joint] -= delta
                     step_size = original_distance - (new_distance - original_distance)
 
         return adjustments

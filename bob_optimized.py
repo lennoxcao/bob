@@ -31,7 +31,9 @@ class Bob:
         self.dt = bp.dt
         self.motor_ids = bp.motor_ids
 
-        self.initial_angles = bp.initial_angles+np.array([[0,0,0,180,0],[0,0,0,0,0]])
+        self.initial_angles = bp.initial_angles + np.array(
+            [[0, 0, 0, 180, 0], [0, 0, 0, 0, 0]]
+        )
 
         # joint_angles: 2×5 array holding the current measured motor angles (in degrees).
         self.joint_angles = np.zeros((2, 5), dtype=float)
@@ -572,17 +574,22 @@ class Bob:
         )
         print(dtheta)
 
+    def test_init_pos(self):
+        self.bulk_write_positions(
+            self.motor_ids.flatten(),
+            self.angle_to_position(self.initial_angles.flatten()),
+        )
+
+    def movement_sequence(self, sequence, dt):
+        for i in range(len(sequence)):
+            pos = robot.angle_to_position(robot.initial_angles.flatten()) + sequence[i]
+            self.bulk_write_positions(robot.motor_ids.flatten(), pos)
+            time.sleep(dt)
+
 
 try:
     robot = Bob()
-    filename = "position_data.pkl"
-    with open(filename, "rb") as f:
-        sequence = pickle.load(f)
-    print(robot.initial_angles)
-    for i in range(len(sequence)):
-        pos = robot.angle_to_position(robot.initial_angles.flatten())
-        robot.bulk_write_positions(robot.motor_ids.flatten(), pos)
-        time.sleep(0.02)
+    robot.test_init_pos()
 except KeyboardInterrupt:
     print("Terminating...")
 finally:
