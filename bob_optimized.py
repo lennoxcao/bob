@@ -572,7 +572,7 @@ class Bob:
         dtheta = self.bs.compute_jacobian_realtime(
             self.joint_angles, self.roll, self.pitch, alpha
         )
-        print(dtheta)
+        self.bulk_write_positions(robot.motor_ids.flatten(),self.angle_to_position(self.joint_angles.flatten()+self.initial_angles.flatten()+dtheta.flatten()))
 
     def test_init_pos(self):
         self.bulk_write_positions(
@@ -590,6 +590,11 @@ class Bob:
 try:
     robot = Bob()
     robot.test_init_pos()
+    while True:
+        robot.update_motor_angles()
+        robot.update_reference_angle(robot.dt)
+        robot.balance_controller_realtime(0.1)
+        time.sleep(robot.dt)
 except KeyboardInterrupt:
     print("Terminating...")
 finally:
