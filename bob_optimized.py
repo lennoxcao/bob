@@ -32,7 +32,7 @@ class Bob:
         self.motor_ids = bp.motor_ids
 
         self.initial_angles = bp.initial_angles + np.array(
-            [[0, 0, 0, 180, 0], [0, 0, 0, 0, 0]]
+            [[0, 0, 0, 0, 0], [0, 0, 0, 0, 0]]
         )
 
         # joint_angles: 2×5 array holding the current measured motor angles (in degrees).
@@ -455,7 +455,7 @@ class Bob:
         For each leg, the computed ankle angle is clamped to a safe range.
         """
         angle_right = self.normalize_angle(
-            self.roll - self.joint_angles[0, 2] + self.joint_angles[0, 3]
+            -self.roll + self.joint_angles[0, 2] - self.joint_angles[0, 3]
         )
         pos_right = self.angle_to_position(angle_right + self.initial_angles[0, 4])
         angle_left = self.normalize_angle(
@@ -580,7 +580,7 @@ try:
     while True:
         robot.update_motor_angles()
         robot.update_reference_angle(robot.dt)
-        #robot.balance_controller_realtime(0.1)
+        robot.balance_controller_realtime(0.5)
         robot.sync_ankle()
         time.sleep(robot.dt)
 except KeyboardInterrupt:
