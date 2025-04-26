@@ -594,6 +594,7 @@ try:
         robot.update_motor_angles()
         robot.update_reference_angle(robot.dt)
         robot.balance_controller_realtime(0.1)
+        robot.sync_ankle()
         time.sleep(robot.dt)
 except KeyboardInterrupt:
     print("Terminating...")

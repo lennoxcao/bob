@@ -267,6 +267,7 @@ class Bob_sim:
         # Midpoint of the two foot positions
 
         step_size = np.linalg.norm(total_com - target_position)
+        print('difference in com:'+str(total_com - target_position))
 
         adjustments = np.zeros_like(joint_angles)
 
@@ -274,7 +275,7 @@ class Bob_sim:
         proposed_adjustments = np.zeros_like(joint_angles)
         proposed_step_sizes = np.full_like(joint_angles, np.inf, dtype=float)
 
-        for joint in [2, 0, 1, 3, 4]:  # 0 = right, 1 = left
+        for joint in [2, 0, 1, 3]:  # 0 = right, 1 = left
             for leg in range(2):
                 # Copy the joint angles to avoid mutating them
                 temp_angles = joint_angles.copy()
