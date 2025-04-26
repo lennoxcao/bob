@@ -256,19 +256,7 @@ class Bob_sim:
     # --- Jacobian Grid Computation ---
 
     def compute_jacobian_realtime(self, joint_angles, roll, pitch, alpha):
-        coords = self.get_coordinates(roll, pitch, joint_angles)
-        part_coords = self.get_part_coordinates(coords)
-        com = self.get_com(coords)
-        total_com = ((com[0] + com[1]) / 2)[0:2]
-
-        foot_right = part_coords[0][:, 5]
-        foot_left = part_coords[1][:, 5]
-        target_position = ((foot_right + foot_left) / 2.0)[0:2]
-        # Midpoint of the two foot positions
-
-        step_size = np.linalg.norm(total_com - target_position)
-        print('difference in com:'+str(total_com - target_position))
-
+        # what to return
         adjustments = np.zeros_like(joint_angles)
 
         # Store temporary adjustments and distances before applying them
@@ -280,39 +268,44 @@ class Bob_sim:
                 # Copy the joint angles to avoid mutating them
                 temp_angles = joint_angles.copy()
 
+                # calculate target position
+                coords = self.get_coordinates(roll, pitch, temp_angles)
+                part_coords = self.get_part_coordinates(coords)
+                foot_right = part_coords[0][:, 5]
+                foot_left = part_coords[1][:, 5]
+                target_position = ((foot_right + foot_left) / 2.0)[0:2]
+
+                # calculate com
+                com = self.get_com(coords)
+                total_com = ((com[0] + com[1]) / 2)[0:2]
+
+                # calculate step size
+                original_distance = np.linalg.norm(total_com - target_position)
+                print('difference in com:'+str(total_com - target_position))
+
                 # Try positive delta
-                delta = step_size * alpha
+                delta = original_distance * alpha
                 temp_angles[leg, joint] += delta
                 coords = self.get_coordinates(roll, pitch, temp_angles)
                 new_com = self.get_com(coords)
-
+                part_coords = self.get_part_coordinates(coords)
+                foot_right = part_coords[0][:, 5]
+                foot_left = part_coords[1][:, 5]
+                target_position = ((foot_right + foot_left) / 2.0)[0:2]
                 new_distance = np.linalg.norm(
                     (new_com[0][:2] + new_com[1][:2]) / 2 - target_position
-                )
-
-                # Compare with baseline distance using current joint_angles
-                coords_original = self.get_coordinates(roll, pitch, joint_angles)
-                com_original = self.get_com(coords_original)
-                original_distance = np.linalg.norm(
-                    (com_original[0][:2] + com_original[1][:2]) / 2 - target_position
                 )
 
                 # Decide direction and record adjustment
                 if new_distance < original_distance:
                     proposed_adjustments[leg, joint] = delta
-                    proposed_step_sizes[leg, joint] = new_distance
                 else:
                     proposed_adjustments[leg, joint] = -delta
-                    # Estimate effective step improvement (still need for tuning)
-                    proposed_step_sizes[leg, joint] = original_distance - (
-                        new_distance - original_distance
-                    )
 
             # After checking both legs for this joint, apply the updates
             for leg in range(2):
                 joint_angles[leg, joint] += proposed_adjustments[leg, joint]
                 adjustments[leg, joint] = proposed_adjustments[leg, joint]
-                step_size = proposed_step_sizes[leg, joint]
 
         """for joint in [2,0,1,3,4]:  # 0 = right, 1 = left
             for leg in range(2):

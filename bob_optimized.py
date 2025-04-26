@@ -457,26 +457,13 @@ class Bob:
         angle_right = self.normalize_angle(
             self.roll - self.joint_angles[0, 2] + self.joint_angles[0, 3]
         )
+        pos_right = self.angle_to_position(angle_right + self.initial_angles[0, 4])
         angle_left = self.normalize_angle(
-            -self.roll + self.joint_angles[1, 2] - self.joint_angles[1, 3]
+            self.roll - self.joint_angles[1, 2] + self.joint_angles[1, 3]
         )
-        if 48 < angle_right <= 180:
-            angle_right = 47
-        elif 180 <= angle_right < 312:
-            angle_right = 311
-        if 48 < angle_left <= 180:
-            angle_left = 47
-        elif 180 <= angle_left < 312:
-            angle_left = 311
+        pos_left = self.angle_to_position(angle_left + self.initial_angles[1, 4])
 
-        self.set_dynamixel_position(
-            self.angle_to_position(angle_right + self.initial_angles[0, 4]),
-            self.motor_ids[0, 4],
-        )
-        self.set_dynamixel_position(
-            self.angle_to_position(angle_left + self.initial_angles[1, 4]),
-            self.motor_ids[1, 4],
-        )
+        self.bulk_write_positions([25,15],[pos_right,pos_left])
 
     def terminate(self):
         """Disable torque for all motors and close the port."""
@@ -593,7 +580,7 @@ try:
     while True:
         robot.update_motor_angles()
         robot.update_reference_angle(robot.dt)
-        robot.balance_controller_realtime(0.1)
+        #robot.balance_controller_realtime(0.1)
         robot.sync_ankle()
         time.sleep(robot.dt)
 except KeyboardInterrupt:
