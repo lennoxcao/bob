@@ -460,7 +460,7 @@ class Bob:
         )
         pos_right = self.angle_to_position(angle_right + self.initial_angles[0, 4])
         angle_left = self.normalize_angle(
-            self.roll - self.joint_angles[1, 2] + self.joint_angles[1, 3]
+            self.roll + self.joint_angles[1, 2] - self.joint_angles[1, 3]
         )
         pos_left = self.angle_to_position(angle_left + self.initial_angles[1, 4])
 
@@ -557,6 +557,8 @@ class Bob:
         joints (assumed to be joints 0–3 for each leg). The new goal positions are computed
         in a vectorized manner and sent via a single bulk-write packet.
         """
+        self.get_coordinates()
+        print('angles:' +str(self.joint_angles))
         dtheta = self.bs.compute_jacobian_realtime(
             self.joint_angles, self.roll, self.pitch, alpha
         )
@@ -580,8 +582,25 @@ class Bob:
 try:
     robot = Bob()
     robot.test_init_pos()
+    robot.test_neutral_pos()
+    time.sleep(3)
+    """coords = robot.get_coordinates()
+    part_coords = robot.get_part_coordinates(coords)
+    foot_right = part_coords[0][:, 5]
+    foot_left = part_coords[1][:, 5]
+    target_position = ((foot_right + foot_left) / 2.0)[0:2]
+    print('target'+str(target_position))
+    com = robot.get_com()
+    total_com_xy = ((com[0] + com[1]) / 2)[0:2]
+    print('com'+str(total_com_xy))
+    time.sleep(5)"""
+    
     while True:
-        robot.test_neutral_pos()
+        robot.balance_controller_realtime(0.0001)
+        #robot.get_coordinates()
+        robot.sync_ankle()
+        time.sleep(robot.dt)
+
     """while True:
         robot.update_motor_angles()
         robot.update_reference_angle(robot.dt)
