@@ -22,6 +22,7 @@ class Bob_sim:
         self.part_mass = bp.part_mass
         self.motor_mass = bp.motor_mass
         self.total_mass = bp.total_mass
+        self.neutral_pos = bp.neutral_pos
 
         # This dictionary will hold the precomputed Jacobian lookup table.
         self.jacobian_grid = {}
@@ -263,6 +264,21 @@ class Bob_sim:
         proposed_adjustments = np.zeros_like(joint_angles)
         proposed_step_sizes = np.full_like(joint_angles, np.inf, dtype=float)
 
+        def reward(roll,pitch,angles):
+            loss = 0
+            coords = self.get_coordinates(roll, pitch, angles)
+            part_coords = self.get_part_coordinates(coords)
+            foot_right = part_coords[0][:, 5]
+            foot_left = part_coords[1][:, 5]
+            target_position = ((foot_right + foot_left) / 2.0)[0:2]
+            com = self.get_com(coords)
+            total_com_xy = ((com[0] + com[1]) / 2)[0:2]
+
+            #com term
+            loss += 0.2*np.linalg.norm(total_com_xy - target_position)
+            
+
+
         for joint in [2, 0, 1, 3]:  # 0 = right, 1 = left
             for leg in range(2):
                 # Copy the joint angles to avoid mutating them
@@ -306,29 +322,6 @@ class Bob_sim:
             for leg in range(2):
                 joint_angles[leg, joint] += proposed_adjustments[leg, joint]
                 adjustments[leg, joint] = proposed_adjustments[leg, joint]
-
-        """for joint in [2,0,1,3,4]:  # 0 = right, 1 = left
-            for leg in range(2):
-                # Perturb the current joint slightly to compute the gradient
-                delta = step_size * alpha
-                joint_angles[leg, joint] += delta
-                coords = self.get_coordinates(roll, pitch, joint_angles)
-                new_com = self.get_com(coords)
-
-                new_distance = np.linalg.norm(
-                    (new_com[0][:2] + new_com[1][:2]) / 2 - target_position
-                )
-                original_distance = step_size
-
-                if new_distance < original_distance:
-                    # Move in the positive direction
-                    adjustments[leg, joint] = delta
-                    joint_angles[leg, joint] += delta
-                    step_size = new_distance
-                else:
-                    adjustments[leg, joint] = -delta
-                    joint_angles[leg, joint] -= delta
-                    step_size = original_distance - (new_distance - original_distance)"""
 
         return adjustments
 

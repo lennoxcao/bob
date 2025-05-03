@@ -19,7 +19,7 @@ class Bob_params:
         with open("init_angles.pkl", "rb") as file:
             init_angles = pickle.load(file)
         self.initial_angles = init_angles
-
+        self.neutral_pos = np.array([0,0,-25,-50,35,0,0,25,50,-35])
         # joints_para is a 3-D array of shape (2, 6, 6):
         #   For each leg (first dimension):
         #     Row 0: Joint 0 (base) parameters [r, alpha, theta, b, a, d]

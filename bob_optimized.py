@@ -43,6 +43,7 @@ class Bob:
         self.part_mass = bp.part_mass
         self.motor_mass = bp.motor_mass
         self.total_mass = bp.total_mass
+        self.neutral_pos = bp.neutral_pos
 
         # --------------------------------------------------
         # Initialize Dynamixel communication.
@@ -574,7 +575,7 @@ class Bob:
             time.sleep(dt)
 
     def test_neutral_pos(self):
-        self.bulk_write_positions(self.motor_ids.flatten(),self.angle_to_position(np.array([0,0,-25,-50,35,0,0,25,50,-35])+self.initial_angles.flatten()))
+        self.bulk_write_positions(self.motor_ids.flatten(),self.angle_to_position(self.neutral_pos+self.initial_angles.flatten()))
 
 try:
     robot = Bob()
