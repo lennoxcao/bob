@@ -573,16 +573,20 @@ class Bob:
             self.bulk_write_positions(robot.motor_ids.flatten(), pos)
             time.sleep(dt)
 
+    def test_neutral_pos(self):
+        self.bulk_write_positions(self.motor_ids.flatten(),self.angle_to_position(np.array([0,0,-25,-50,35,0,0,25,50,-35])+self.initial_angles.flatten()))
 
 try:
     robot = Bob()
     robot.test_init_pos()
     while True:
+        robot.test_neutral_pos()
+    """while True:
         robot.update_motor_angles()
         robot.update_reference_angle(robot.dt)
         robot.balance_controller_realtime(0.5)
         robot.sync_ankle()
-        time.sleep(robot.dt)
+        time.sleep(robot.dt)"""
 except KeyboardInterrupt:
     print("Terminating...")
 finally:
