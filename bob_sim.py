@@ -256,28 +256,28 @@ class Bob_sim:
 
     # --- Jacobian Grid Computation ---
 
-    def loss(self,roll,pitch,angles):
-            loss = 0
-            coords = self.get_coordinates(roll, pitch, angles)
-            part_coords = self.get_part_coordinates(coords)
-            foot_right = part_coords[0][:, 5]
-            foot_left = part_coords[1][:, 5]
-            target_position = ((foot_right + foot_left) / 2.0)[0:2]
-            com = self.get_com(coords)
-            total_com_xy = ((com[0] + com[1]) / 2)[0:2]-np.array([-0.2,26])
+    def loss(self, roll, pitch, angles):
+        loss = 0
+        coords = self.get_coordinates(roll, pitch, angles)
+        part_coords = self.get_part_coordinates(coords)
+        foot_right = part_coords[0][:, 5]
+        foot_left = part_coords[1][:, 5]
+        target_position = ((foot_right + foot_left) / 2.0)[0:2]
+        com = self.get_com(coords)
+        total_com_xy = ((com[0] + com[1]) / 2)[0:2] - np.array([-0.2, 26])
 
-            #com term
-            loss += 0.2*np.linalg.norm(total_com_xy - target_position)
-            print('com term:'+str(loss))
+        # com term
+        loss += 0.2 * np.linalg.norm(total_com_xy - target_position)
+        print("com term:" + str(loss))
 
-            #neutral pos term
-            angles = self.normalize_angle(angles.flatten()-self.neutral_pos)
-            angles = (angles+180)%360-180
-            loss += 0.0002*np.sum(np.square(angles))
-            print('neutral term:'+str(np.sum(np.square(angles))))
+        # neutral pos term
+        angles = self.normalize_angle(angles.flatten() - self.neutral_pos)
+        angles = (angles + 180) % 360 - 180
+        loss += 0.002 * np.sum(np.square(angles))
+        print("neutral term:" + str(np.sum(np.square(angles))))
 
-            return loss
-    
+        return loss
+
     def compute_jacobian_realtime(self, joint_angles, roll, pitch, alpha):
         # what to return
         adjustments = np.zeros_like(joint_angles)
@@ -286,24 +286,22 @@ class Bob_sim:
         proposed_adjustments = np.zeros_like(joint_angles)
         proposed_step_sizes = np.full_like(joint_angles, np.inf, dtype=float)
 
+        current_loss = self.loss(roll, pitch, joint_angles)
+
         for joint in [2, 0, 1, 3]:  # 0 = right, 1 = left
             for leg in range(2):
                 # Copy the joint angles to avoid mutating them
                 temp_angles = joint_angles.copy()
-
-                # calculate current loss
-                current_loss = self.loss(roll,pitch,joint_angles)
-
                 # Try positive delta
                 delta = 1
                 temp_angles[leg, joint] += delta
-                new_loss = self.loss(roll,pitch,temp_angles)
+                new_loss = self.loss(roll, pitch, temp_angles)
 
                 # Decide direction and record adjustment
                 if new_loss < current_loss:
-                    proposed_adjustments[leg, joint] = delta*alpha
+                    proposed_adjustments[leg, joint] = delta * alpha
                 else:
-                    proposed_adjustments[leg, joint] = -delta*alpha
+                    proposed_adjustments[leg, joint] = -delta * alpha
 
             # After checking both legs for this joint, apply the updates
             for leg in range(2):
